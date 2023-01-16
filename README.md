@@ -5,8 +5,9 @@
 ```bash
 # https://github.com/nvm-sh/nvm#install--update-script
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | bash
-nvm install 17.0.1
-nvm use 17.0.1
+# or any minor version for node18+
+nvm install 18.13.0
+nvm use 18.13.0
 ```
 ### <a name="installing-pnpm"></a> Install pnpm
 ---
