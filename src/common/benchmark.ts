@@ -1,9 +1,10 @@
 import { run, bench, group } from "mitata";
 import { eq, ilike } from "drizzle-orm/expressions";
 import { sql } from "drizzle-orm";
-import { PgConnector, alias } from "drizzle-orm-pg";
+import { alias } from "drizzle-orm/pg-core";
+import { drizzle as drizzleDb } from "drizzle-orm/postgres-js/driver";
 import { placeholder } from "drizzle-orm/sql";
-import pkg from "pg";
+import pkg from "postgres";
 import knex from "knex";
 import dotenv from "dotenv";
 import { Kysely, sql as k_sql, PostgresDialect } from "kysely";
@@ -14,6 +15,7 @@ import { PostgreSqlDriver, SqlEntityManager } from "@mikro-orm/postgresql";
 import * as Prisma from "@prisma/client";
 
 import { Database } from "@/kysely/db";
+import { PostgresJSDialect } from "kysely-postgres-js";
 import { Customer } from "@/typeorm/entities/customers";
 import { Employee } from "@/typeorm/entities/employees";
 import { Supplier } from "@/typeorm/entities/suppliers";
@@ -47,48 +49,52 @@ import { createDockerDBs, ports, deleteDockerDBs, DockerDBs } from "@/utils";
 
 dotenv.config();
 
-const DB_HOST = process.env.DB_HOST ?? 'localhost'
-const DB_NAME = process.env.DB_NAME ?? 'postgres'
-const DB_USER = process.env.DB_USER ?? 'postgres'
-const DB_PASSWORD = process.env.DB_PASSWORD ?? 'postgres'
-const DB_PORT = process.env.DB_PORT
+const DB_HOST = process.env.DB_HOST ?? "localhost";
+const DB_NAME = process.env.DB_NAME ?? "postgres";
+const DB_USER = process.env.DB_USER ?? "postgres";
+const DB_PASSWORD = process.env.DB_PASSWORD ?? "postgres";
+const DB_PORT = process.env.DB_PORT;
 
 console.log(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT);
-const port = Number(DB_PORT || ports.drizzle)
+const port = Number(DB_PORT || ports.drizzle);
 console.log(port);
 
-const dockersDbs = await createDockerDBs(ports);  
+const dockersDbs = await createDockerDBs(ports);
 
-const { Pool } = pkg;
+// const { Pool } = pkg;
 // pg connect
-const pg = new Pool({
+const postgresJs = pkg({
   host: DB_HOST,
   port: Number(DB_PORT || ports.pg),
   user: DB_USER,
   password: DB_PASSWORD,
   database: DB_NAME,
+  prepare: false,
 });
 
 // pgPrepared connect
-const pgPrepared = new Pool({
+const postgresJsPrepared = pkg({
   host: DB_HOST,
   port: Number(DB_PORT || ports.pgPrepared),
   user: DB_USER,
   password: DB_PASSWORD,
   database: DB_NAME,
+  prepare: true,
 });
 
 // drizzle connect
-const drizzlePool = new Pool({ connectionString: process.env.DATABASE_URL 
-  ?? `postgres://postgres:postgres@localhost:${ports.drizzle}/postgres`});
-const drizzleConnector = new PgConnector(drizzlePool);
-const drizzle = await drizzleConnector.connect();
+const drizzlePool = pkg(
+  process.env.DATABASE_URL ??
+    `postgres://postgres:postgres@localhost:${ports.drizzle}/postgres`,
+);
+const drizzle = drizzleDb(drizzlePool);
 
 // drizzlePrepared  connect
-const drizzlePreparedPool = new Pool({ connectionString: process.env.DATABASE_URL 
-  ?? `postgres://postgres:postgres@localhost:${ports.drizzlePrepared}/postgres`});
-const drizzlePreparedConnector = new PgConnector(drizzlePreparedPool);
-const drizzlePrepared = await drizzlePreparedConnector.connect();
+const drizzlePreparedPool = pkg(
+  process.env.DATABASE_URL ??
+    `postgres://postgres:postgres@localhost:${ports.drizzlePrepared}/postgres`,
+);
+const drizzlePrepared = drizzleDb(drizzlePreparedPool);
 
 // mikro connect
 const mikroOrm = await MikroORM.init<PostgreSqlDriver>({
@@ -118,17 +124,17 @@ const knexDb = knex({
 
 // kysely connect
 const kysely = new Kysely<Database>({
-  dialect: new PostgresDialect({
-    pool: new Pool({
+  dialect: new PostgresJSDialect({
+    options: {
       host: DB_HOST,
       port: Number(DB_PORT || ports.kysely),
       user: DB_USER,
       password: DB_PASSWORD,
       database: DB_NAME,
-    }),
+    },
+    postgres: pkg,
   }),
 });
-
 
 // prisma connect
 const prisma = new Prisma.PrismaClient();
@@ -151,25 +157,28 @@ const typeorm = new DataSource({
 await typeorm.initialize();
 
 group("select * from customer", () => {
-  bench("pg", async () => {
-    await pg.query('select * from "customers"');
-  });
+  // bench("postgres.js", async () => {
+  //   await postgresJs.unsafe('select * from "customers"');
+  // });
 
   const query = {
     name: "Customers-getAll",
     text: 'select * from "customers"',
   };
-  bench("pg:p", async () => {
-    await pgPrepared.query(query);
+  bench("postgres.js", async () => {
+    await postgresJsPrepared.unsafe(query.text);
   });
 
   bench("drizzle", async () => {
-    await drizzle.select(customers);
+    await drizzle.select().from(customers);
   });
 
-  const prepared = drizzlePrepared.select(customers).prepare("Customers-getAll-D");
+  const prepared = drizzlePrepared
+    .select()
+    .from(customers)
+    .prepare("Customers-getAll-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     await prepared.execute();
   });
 
@@ -197,35 +206,36 @@ group("select * from customer", () => {
 
 //
 group("select * from customer where id = ?", () => {
-  bench("pg", async () => {
-    for (const id of customerIds) {
-      await pg.query('select * from "customers" where "customers"."id" = $1', [
-        id,
-      ]);
-    }
-  });
+  // bench("postgres.js", async () => {
+  //   for (const id of customerIds) {
+  //     await postgresJs.unsafe('select * from "customers" where "customers"."id" = $1', [
+  //       id,
+  //     ]);
+  //   }
+  // });
   const query = {
     name: "Customers-getInfo",
     text: 'select * from "customers" where "customers"."id" = $1',
   };
 
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     for (const id of customerIds) {
-      await pgPrepared.query(query, [id]);
+      await postgresJsPrepared.unsafe(query.text, [id]);
     }
   });
 
   bench("drizzle", async () => {
     for (const id of customerIds) {
-      await drizzle.select(customers).where(eq(customers.id, id));
+      await drizzle.select().from(customers).where(eq(customers.id, id));
     }
   });
   const prepared = drizzlePrepared
-    .select(customers)
+    .select()
+    .from(customers)
     .where(eq(customers.id, placeholder("userId")))
     .prepare("Customers-getInfo-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     for (const id of customerIds) {
       await prepared.execute({ userId: id });
     }
@@ -278,39 +288,41 @@ group("select * from customer where id = ?", () => {
 
 //
 group("select * from customer where company_name ilike ?", () => {
-  bench("pg", async () => {
-    for (const it of customerSearches) {
-      await pg.query(
-        'select * from "customers" where "customers"."company_name" ilike $1',
-        [`%${it}%`]
-      );
-    }
-  });
+  // bench("postgres.js", async () => {
+  //   for (const it of customerSearches) {
+  //     await postgresJs.unsafe(
+  //       'select * from "customers" where "customers"."company_name" ilike $1',
+  //       [`%${it}%`]
+  //     );
+  //   }
+  // });
 
   const query = {
     name: "Customers-search",
     text: 'select * from "customers" where "customers"."company_name" ilike $1',
   };
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     for (const it of customerSearches) {
-      await pgPrepared.query(query, [`%${it}%`]);
+      await postgresJs.unsafe(query.text, [`%${it}%`]);
     }
   });
 
   bench("drizzle", async () => {
     for (const it of customerSearches) {
       await drizzle
-        .select(customers)
+        .select()
+        .from(customers)
         .where(ilike(customers.companyName, `%${it}%`));
     }
   });
 
   const prepared = drizzlePrepared
-    .select(customers)
+    .select()
+    .from(customers)
     .where(sql`${customers.companyName} ilike ${placeholder("name")}`)
     .prepare("Customers-search-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     for (const it of customerSearches) {
       await prepared.execute({ name: `%${it}%` });
     }
@@ -367,26 +379,29 @@ group("select * from customer where company_name ilike ?", () => {
 });
 
 group('"SELECT * FROM employee"', () => {
-  bench("pg", async () => {
-    await pg.query('select * from "employees"');
-  });
+  // bench("postgres.js", async () => {
+  //   await postgresJs.unsafe('select * from "employees"');
+  // });
 
   const query = {
     name: "Employees-getAll",
     text: 'select * from "employees"',
   };
 
-  bench("pg:p", async () => {
-    await pgPrepared.query(query);
+  bench("postgres.js", async () => {
+    await postgresJsPrepared.unsafe(query.text);
   });
 
   bench("drizzle", async () => {
-    await drizzle.select(employees);
+    await drizzle.select().from(employees);
   });
 
-  const prepared = drizzlePrepared.select(employees).prepare("Employees-getAll-D");
+  const prepared = drizzlePrepared
+    .select()
+    .from(employees)
+    .prepare("Employees-getAll-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     await prepared.execute();
   });
 
@@ -414,24 +429,24 @@ group('"SELECT * FROM employee"', () => {
 
 //
 group("select * from employee where id = ? left join reportee", () => {
-  bench("pg", async () => {
-    for (const id of employeeIds) {
-      await pg.query(
-        `select "e1".*, "e2"."last_name" as "reports_lname", "e2"."first_name" as "reports_fname"
-              from "employees" as "e1" left join "employees" as "e2" on "e2"."id" = "e1"."recipient_id" where "e1"."id" = $1`,
-        [id]
-      );
-    }
-  });
+  // bench("postgres.js", async () => {
+  //   for (const id of employeeIds) {
+  //     await postgresJs.unsafe(
+  //       `select "e1".*, "e2"."last_name" as "reports_lname", "e2"."first_name" as "reports_fname"
+  //             from "employees" as "e1" left join "employees" as "e2" on "e2"."id" = "e1"."recipient_id" where "e1"."id" = $1`,
+  //       [id]
+  //     );
+  //   }
+  // });
   const query = {
     name: "Employees-getInfo",
     text: `select "e1".*, "e2"."last_name" as "reports_lname", "e2"."first_name" as "reports_fname"
     from "employees" as "e1" left join "employees" as "e2" on "e2"."id" = "e1"."recipient_id" where "e1"."id" = $1`,
   };
 
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     for await (const id of employeeIds) {
-      await pgPrepared.query(query, [id]);
+      await postgresJsPrepared.unsafe(query.text, [id]);
     }
   });
 
@@ -440,7 +455,8 @@ group("select * from employee where id = ? left join reportee", () => {
 
     for (const id of employeeIds) {
       await drizzle
-        .select(employees)
+        .select()
+        .from(employees)
         .leftJoin(e2, eq(e2.id, employees.recipientId))
         .where(eq(employees.id, id));
     }
@@ -448,12 +464,13 @@ group("select * from employee where id = ? left join reportee", () => {
 
   const e2 = alias(employees, "recipient");
   const prepared = drizzlePrepared
-    .select(employees)
+    .select()
+    .from(employees)
     .leftJoin(e2, eq(e2.id, employees.recipientId))
     .where(eq(employees.id, placeholder("employeeId")))
     .prepare("Employees-getInfo-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     for (const id of employeeIds) {
       await prepared.execute({ employeeId: id });
     }
@@ -555,25 +572,28 @@ group("select * from employee where id = ? left join reportee", () => {
 
 //
 group("SELECT * FROM supplier", () => {
-  bench("pg", async () => {
-    await pg.query('select * from "suppliers"');
-  });
+  // bench("postgres.js", async () => {
+  //   await postgresJs.unsafe(`select * from "suppliers"`);
+  // });
 
   const query = {
     name: "Suppliers-getAll",
     text: 'select * from "suppliers"',
   };
-  bench("pg:p", async () => {
-    await pgPrepared.query(query);
+  bench("postgres.js", async () => {
+    await postgresJsPrepared.unsafe(query.text);
   });
 
   bench("drizzle", async () => {
-    await drizzle.select(suppliers);
+    await drizzle.select().from(suppliers);
   });
 
-  const prepared = drizzlePrepared.select(suppliers).prepare("Suppliers-getAll-D");
+  const prepared = drizzlePrepared
+    .select()
+    .from(suppliers)
+    .prepare("Suppliers-getAll-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     await prepared.execute();
   });
 
@@ -601,36 +621,37 @@ group("SELECT * FROM supplier", () => {
 
 //
 group("select * from supplier where id = ?", () => {
-  bench("pg", async () => {
-    for (const id of supplierIds) {
-      await pg.query('select * from "suppliers" where "suppliers"."id" = $1', [
-        id,
-      ]);
-    }
-  });
+  // bench("postgres.js", async () => {
+  //   for (const id of supplierIds) {
+  //     await postgresJs.unsafe('select * from "suppliers" where "suppliers"."id" = $1', [
+  //       id,
+  //     ]);
+  //   }
+  // });
 
   const query = {
     name: "Suppliers-getInfo",
     text: 'select * from "suppliers" where "suppliers"."id" = $1',
   };
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     for (const id of supplierIds) {
-      await pgPrepared.query(query, [id]);
+      await postgresJs.unsafe(query.text, [id]);
     }
   });
 
   bench("drizzle", async () => {
     for (const id of supplierIds) {
-      await drizzle.select(suppliers).where(eq(suppliers.id, id));
+      await drizzle.select().from(suppliers).where(eq(suppliers.id, id));
     }
   });
 
   const prepared = drizzlePrepared
-    .select(suppliers)
+    .select()
+    .from(suppliers)
     .where(eq(suppliers.id, placeholder("supplierId")))
     .prepare("Suppliers-getInfo-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     for (const id of supplierIds) {
       await prepared.execute({ supplierId: id });
     }
@@ -678,25 +699,28 @@ group("select * from supplier where id = ?", () => {
 
 //
 group("SELECT * FROM product", () => {
-  bench("pg", async () => {
-    await pg.query('select * from "products"');
-  });
+  // bench("postgres.js", async () => {
+  //   await postgresJs.unsafe('select * from "products"');
+  // });
 
   const query = {
     name: "Products-getAll",
     text: 'select * from "products"',
   };
-  bench("pg:p", async () => {
-    await pgPrepared.query(query);
+  bench("postgres.js", async () => {
+    await postgresJsPrepared.unsafe(query.text);
   });
 
   bench("drizzle", async () => {
-    await drizzle.select(products);
+    await drizzle.select().from(products);
   });
 
-  const prepared = drizzlePrepared.select(products).prepare("Products-getAll-D");
+  const prepared = drizzlePrepared
+    .select()
+    .from(products)
+    .prepare("Products-getAll-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     await prepared.execute();
   });
 
@@ -724,15 +748,15 @@ group("SELECT * FROM product", () => {
 
 //
 group("SELECT * FROM product LEFT JOIN supplier WHERE product.id = ?", () => {
-  bench("pg", async () => {
-    for (const id of productIds) {
-      await pg.query(
-        `select "products".*, "suppliers".*
-              from "products" left join "suppliers" on "products"."supplier_id" = "suppliers"."id" where "products"."id" = $1`,
-        [id]
-      );
-    }
-  });
+  // bench("postgres.js", async () => {
+  //   for (const id of productIds) {
+  //     await postgresJs.unsafe(
+  //       `select "products".*, "suppliers".*
+  //             from "products" left join "suppliers" on "products"."supplier_id" = "suppliers"."id" where "products"."id" = $1`,
+  //       [id]
+  //     );
+  //   }
+  // });
 
   const query = {
     name: "Products-getInfo",
@@ -740,28 +764,30 @@ group("SELECT * FROM product LEFT JOIN supplier WHERE product.id = ?", () => {
     from "products" left join "suppliers" on "products"."supplier_id" = "suppliers"."id" where "products"."id" = $1`,
   };
 
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     for (const id of productIds) {
-      await pgPrepared.query(query, [id]);
+      await postgresJsPrepared.unsafe(query.text, [id]);
     }
   });
 
   bench("drizzle", async () => {
     for (const id of productIds) {
       await drizzle
-        .select(products)
+        .select()
+        .from(products)
         .leftJoin(suppliers, eq(products.supplierId, suppliers.id))
         .where(eq(products.id, id));
     }
   });
 
   const prepared = drizzlePrepared
-    .select(products)
+    .select()
+    .from(products)
     .leftJoin(suppliers, eq(products.supplierId, suppliers.id))
     .where(eq(products.id, placeholder("productId")))
     .prepare("Products-getInfo-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     for (const id of productIds) {
       await prepared.execute({ productId: id });
     }
@@ -851,38 +877,42 @@ group("SELECT * FROM product LEFT JOIN supplier WHERE product.id = ?", () => {
 
 //
 group("SELECT * FROM product WHERE product.name ILIKE ?", () => {
-  bench("pg", async () => {
-    for (const it of productSearches) {
-      await pg.query(
-        'select * from "products" where "products"."name" ilike $1',
-        [`%${it}%`]
-      );
-    }
-  });
+  // bench("postgres.js", async () => {
+  //   for (const it of productSearches) {
+  //     await postgresJs.unsafe(
+  //       'select * from "products" where "products"."name" ilike $1',
+  //       [`%${it}%`]
+  //     );
+  //   }
+  // });
 
   const query = {
     name: "Products-search",
     text: 'select * from "products" where "products"."name" ilike $1',
   };
 
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     for (const it of productSearches) {
-      await pgPrepared.query(query, [`%${it}%`]);
+      await postgresJsPrepared.unsafe(query.text, [`%${it}%`]);
     }
   });
 
   bench("drizzle", async () => {
     for (const it of productSearches) {
-      await drizzle.select(products).where(ilike(products.name, `%${it}%`));
+      await drizzle
+        .select()
+        .from(products)
+        .where(ilike(products.name, `%${it}%`));
     }
   });
 
   const prepared = drizzlePrepared
-    .select(products)
+    .select()
+    .from(products)
     .where(sql`${products.name} ilike ${placeholder("name")}`)
     .prepare("Products-search-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     for (const it of productSearches) {
       await prepared.execute({ name: `%${it}%` });
     }
@@ -938,11 +968,11 @@ group("SELECT * FROM product WHERE product.name ILIKE ?", () => {
 });
 
 group("select all order with sum and count", () => {
-  bench("pg", async () => {
-    await pg.query(`select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
-        sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
-        from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" group by "o"."id"`);
-  });
+  // bench("postgres.js", async () => {
+  //   await postgresJs.unsafe(`select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
+  //       sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
+  //       from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" group by "o"."id"`);
+  // });
 
   const query = {
     name: "Orders-getAll",
@@ -950,14 +980,13 @@ group("select all order with sum and count", () => {
     sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
     from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" group by "o"."id"`,
   };
-  bench("pg:p", async () => {
-    await pgPrepared.query(query);
+  bench("postgres.js", async () => {
+    await postgresJsPrepared.unsafe(query.text);
   });
 
   bench("drizzle", async () => {
     await drizzle
-      .select(orders)
-      .fields({
+      .select({
         id: orders.id,
         shippedDate: orders.shippedDate,
         shipName: orders.shipName,
@@ -968,13 +997,13 @@ group("select all order with sum and count", () => {
         totalPrice:
           sql`sum(${details.quantity} * ${details.unitPrice})`.as<number>(),
       })
+      .from(orders)
       .leftJoin(details, eq(orders.id, details.orderId))
       .groupBy(orders.id);
   });
 
   const prepared = drizzlePrepared
-    .select(orders)
-    .fields({
+    .select({
       id: orders.id,
       shippedDate: orders.shippedDate,
       shipName: orders.shipName,
@@ -985,11 +1014,12 @@ group("select all order with sum and count", () => {
       totalPrice:
         sql`sum(${details.quantity} * ${details.unitPrice})`.as<number>(),
     })
+    .from(orders)
     .leftJoin(details, eq(orders.id, details.orderId))
     .groupBy(orders.id)
     .prepare("Orders-getAll-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     await prepared.execute();
   });
 
@@ -1105,23 +1135,22 @@ group("select all order with sum and count", () => {
 });
 
 group("select order with sum and count using limit with offset", () => {
-  
   const limit = 50;
 
-  bench("pg", async () => {
-    let offset = 0;
-    while (true) {
-      const result = await pg.query(
-        `select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
-      sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
-      from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" group by "o"."id" ORDER BY o.id ASC limit $1 offset $2`,
-        [limit, offset]
-      );
+  // bench("postgres.js", async () => {
+  //   let offset = 0;
+  //   while (true) {
+  //     const result = await postgresJs.unsafe(
+  //       `select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
+  //     sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
+  //     from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" group by "o"."id" ORDER BY o.id ASC limit $1 offset $2`,
+  //       [limit, offset]
+  //     );
 
-      offset += limit;  
-      if (result.rowCount < limit) break;
-    }
-  });
+  //     offset += limit;
+  //     if (result.length < limit) break;
+  //   }
+  // });
 
   const query = {
     name: "Orders-getLimit-withOffset",
@@ -1130,12 +1159,12 @@ group("select order with sum and count using limit with offset", () => {
     from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" group by "o"."id" ORDER BY o.id ASC limit $1 offset $2`,
   };
 
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     let offset = 0;
     while (true) {
-      const result = await pgPrepared.query(query, [limit, offset]);
+      const result = await postgresJsPrepared.unsafe(query.text, [limit, offset]);
       offset += limit;
-      if (result.rowCount < limit) break;
+      if (result.length < limit) break;
     }
   });
 
@@ -1143,8 +1172,7 @@ group("select order with sum and count using limit with offset", () => {
     let offset = 0;
     while (true) {
       const result = await drizzle
-        .select(orders)
-        .fields({
+        .select({
           id: orders.id,
           shippedDate: orders.shippedDate,
           shipName: orders.shipName,
@@ -1155,6 +1183,7 @@ group("select order with sum and count using limit with offset", () => {
           totalPrice:
             sql`sum(${details.quantity} * ${details.unitPrice})`.as<number>(),
         })
+        .from(orders)
         .leftJoin(details, eq(orders.id, details.orderId))
         .orderBy(orders.id)
         .groupBy(orders.id)
@@ -1167,8 +1196,7 @@ group("select order with sum and count using limit with offset", () => {
   });
 
   const prepared = drizzlePrepared
-    .select(orders)
-    .fields({
+    .select({
       id: orders.id,
       shippedDate: orders.shippedDate,
       shipName: orders.shipName,
@@ -1179,6 +1207,7 @@ group("select order with sum and count using limit with offset", () => {
       totalPrice:
         sql`sum(${details.quantity} * ${details.unitPrice})`.as<number>(),
     })
+    .from(orders)
     .leftJoin(details, eq(orders.id, details.orderId))
     .orderBy(orders.id)
     .groupBy(orders.id)
@@ -1186,7 +1215,7 @@ group("select order with sum and count using limit with offset", () => {
     .offset(placeholder("offset"))
     .prepare("Orders-getLimit-withOffset-D");
 
-  bench("drizle:p", async () => {
+  bench("drizle prepared statement", async () => {
     let offset = 0;
     while (true) {
       const result = await prepared.execute({ limit, offset });
@@ -1356,26 +1385,26 @@ group("select order with sum and count using limit with offset", () => {
 });
 
 group("select order where order.id = ? with sum and count", () => {
-  bench("pg", async () => {
-    await Promise.all(
-      orderIds.map(async (id) => {
-        await pg.query(
-          `select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
-        sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
-        from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" where "o"."id" = $1 group by "o"."id"`,
-          [id]
-        );
-      })
-    );
-    // for (const id of orderIds) {
-    //   await pg.query(
-    //     `select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
-    //     sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
-    //     from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" where "o"."id" = $1 group by "o"."id"`,
-    //     [id]
-    //   );
-    // }
-  });
+  // bench("postgres.js", async () => {
+  //   await Promise.all(
+  //     orderIds.map(async (id) => {
+  //       await postgresJs.unsafe(
+  //         `select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
+  //       sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
+  //       from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" where "o"."id" = $1 group by "o"."id"`,
+  //         [id]
+  //       );
+  //     })
+  //   );
+  //   // for (const id of orderIds) {
+  //   //   await pg.query(
+  //   //     `select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
+  //   //     sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
+  //   //     from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" where "o"."id" = $1 group by "o"."id"`,
+  //   //     [id]
+  //   //   );
+  //   // }
+  // });
 
   const query = {
     name: "Orders-getById",
@@ -1384,10 +1413,10 @@ group("select order where order.id = ? with sum and count", () => {
     from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" where "o"."id" = $1 group by "o"."id"`,
   };
 
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     await Promise.all(
       orderIds.map(async (id) => {
-        await pgPrepared.query(query, [id]);
+        await postgresJsPrepared.unsafe(query.text, [id]);
       })
     );
     // for (const id of orderIds) {
@@ -1399,8 +1428,7 @@ group("select order where order.id = ? with sum and count", () => {
     await Promise.all(
       orderIds.map(async (id) => {
         await drizzle
-          .select(orders)
-          .fields({
+          .select({
             id: orders.id,
             shippedDate: orders.shippedDate,
             shipName: orders.shipName,
@@ -1411,6 +1439,7 @@ group("select order where order.id = ? with sum and count", () => {
             totalPrice:
               sql`sum(${details.quantity} * ${details.unitPrice})`.as<number>(),
           })
+          .from(orders)
           .leftJoin(details, eq(orders.id, details.orderId))
           .where(eq(orders.id, id))
           .groupBy(orders.id);
@@ -1437,8 +1466,7 @@ group("select order where order.id = ? with sum and count", () => {
   });
 
   const prepared = drizzlePrepared
-    .select(orders)
-    .fields({
+    .select({
       id: orders.id,
       shippedDate: orders.shippedDate,
       shipName: orders.shipName,
@@ -1449,12 +1477,13 @@ group("select order where order.id = ? with sum and count", () => {
       totalPrice:
         sql`sum(${details.quantity} * ${details.unitPrice})`.as<number>(),
     })
+    .from(orders)
     .leftJoin(details, eq(orders.id, details.orderId))
     .where(eq(orders.id, placeholder("orderId")))
     .groupBy(orders.id)
     .prepare("Orders-getById-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     await Promise.all(
       orderIds.map(async (id) => {
         await prepared.execute({ orderId: id });
@@ -1713,17 +1742,17 @@ group("select order where order.id = ? with sum and count", () => {
 
 //
 group("SELECT * FROM order_detail WHERE order_id = ?", () => {
-  bench("pg", async () => {
-    for (const id of orderIds) {
-      await pg.query(
-        `SELECT * FROM "orders" AS o
-            LEFT JOIN "order_details" AS od ON o.id = od.order_id
-            LEFT JOIN "products" AS p ON od.product_id = p.id
-            WHERE o.id = $1`,
-        [id]
-      );
-    }
-  });
+  // bench("postgres.js", async () => {
+  //   for (const id of orderIds) {
+  //     await postgresJs.unsafe(
+  //       `SELECT * FROM "orders" AS o
+  //           LEFT JOIN "order_details" AS od ON o.id = od.order_id
+  //           LEFT JOIN "products" AS p ON od.product_id = p.id
+  //           WHERE o.id = $1`,
+  //       [id]
+  //     );
+  //   }
+  // });
 
   const query = {
     name: "Orders-getInfo",
@@ -1733,16 +1762,17 @@ group("SELECT * FROM order_detail WHERE order_id = ?", () => {
     WHERE o.id = $1`,
   };
 
-  bench("pg:p", async () => {
+  bench("postgres.js", async () => {
     for await (const id of orderIds) {
-      await pgPrepared.query(query, [id]);
+      await postgresJsPrepared.unsafe(query.text, [id]);
     }
   });
 
   bench("drizzle", async () => {
     for (const id of orderIds) {
       await drizzle
-        .select(orders)
+        .select()
+        .from(orders)
         .leftJoin(details, eq(orders.id, details.orderId))
         .leftJoin(products, eq(details.productId, products.id))
         .where(eq(orders.id, id));
@@ -1750,13 +1780,14 @@ group("SELECT * FROM order_detail WHERE order_id = ?", () => {
   });
 
   const prepared = drizzlePrepared
-    .select(orders)
+    .select()
+    .from(orders)
     .leftJoin(details, eq(orders.id, details.orderId))
     .leftJoin(products, eq(details.productId, products.id))
     .where(eq(orders.id, placeholder("orderId")))
     .prepare("Orders-getInfo-D");
 
-  bench("drizzle:p", async () => {
+  bench("drizzle prepared statement", async () => {
     for (const id of orderIds) {
       await prepared.execute({ orderId: id });
     }
@@ -1878,7 +1909,7 @@ group("SELECT * FROM order_detail WHERE order_id = ?", () => {
   });
 });
 
-const main = async () => { 
+const main = async () => {
   await run();
   await deleteDockerDBs(dockersDbs);
   process.exit(0);

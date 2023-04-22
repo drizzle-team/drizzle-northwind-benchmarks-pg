@@ -6,8 +6,15 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "pnpm run prepare:prisma && tsx src/common/benchmark",
     "prepare:prisma": "npx prisma generate --schema src/prisma/schema.prisma",
-    "start": "pnpm run prepare:prisma && tsx src/common/benchmark"
+    "start:prisma": "pnpm run prepare:prisma && tsx src/prisma/benchmark",
+    "start:pg": "tsx src/pg/benchmark",
+    "start:drizzle": "tsx src/drizzle/benchmark",
+    "start:knex": "tsx src/knex/benchmark",
+    "start:kysely": "tsx src/kysely/benchmark",
+    "start:mikro": "tsx src/mikro/benchmark",
+    "start:typeorm": "tsx src/typeorm/benchmark"
   },
   "keywords": [],
   "author": "",
@@ -16,17 +23,18 @@
     "@mikro-orm/core": "^5.5.3",
     "@mikro-orm/postgresql": "^5.5.3",
     "@mikro-orm/reflection": "^5.5.3",
-    "@prisma/client": "^4.6.1",
+    "@prisma/client": "^4.13.0",
     "dockerode": "^3.3.4",
     "dotenv": "^16.0.3",
-    "drizzle-orm": "^0.13.0",
-    "drizzle-orm-pg": "^0.13.2",
+    "drizzle-orm": "0.24.5-6eae16f",
     "get-port": "^6.1.2",
     "knex": "^2.3.0",
-    "kysely": "^0.22.0",
+    "kysely": "^0.24.2",
+    "kysely-postgres-js": "^1.1.0",
     "mitata": "^0.1.6",
     "pg": "^8.8.0",
-    "prisma": "^4.6.1",
+    "postgres": "^3.3.4",
+    "prisma": "^4.13.0",
     "tsx": "^3.12.1",
     "typeorm": "^0.3.11",
     "uuid": "^9.0.0"
@@ -34,6 +42,7 @@
   "devDependencies": {
     "@types/dockerode": "^3.3.14",
     "@types/pg": "^8.6.5",
-    "@types/uuid": "^9.0.0"
+    "@types/uuid": "^9.0.0",
+    "typescript": "^5.0.4"
   }
 }

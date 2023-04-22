@@ -1,6 +1,7 @@
 import {
-  InferModel, pgTable, varchar, date, text, foreignKey, integer, doublePrecision,
-} from 'drizzle-orm-pg';
+  pgTable, varchar, date, text, foreignKey, integer, doublePrecision,
+} from 'drizzle-orm/pg-core';
+import { InferModel } from 'drizzle-orm/table';
 
 export const customers = pgTable('customers', {
   id: varchar('id', { length: 5 }).primaryKey().notNull(),
@@ -35,10 +36,10 @@ export const employees = pgTable('employees', {
   notes: text('notes').notNull(),
   recipientId: varchar('recipient_id'),
 }, (table) => ({
-  recipientFk: foreignKey(() => ({
+  recipientFk: foreignKey({
     columns: [table.recipientId],
     foreignColumns: [table.id],
-  })),
+  }),
 }));
 
 export type Employee = InferModel<typeof employees>;
