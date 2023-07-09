@@ -21,7 +21,7 @@ dependencies:
     version: 16.0.3
   drizzle-orm:
     specifier: 0.24.5-6eae16f
-    version: 0.24.5-6eae16f(@types/pg@8.6.6)(knex@2.4.0)(kysely@0.24.2)(pg@8.8.0)(postgres@3.3.4)
+    version: link:node_modules/drizzle-orm
   get-port:
     specifier: ^6.1.2
     version: 6.1.2
@@ -61,7 +61,7 @@ devDependencies:
     specifier: ^3.3.14
     version: 3.3.14
   '@types/pg':
-    specifier: ^8.6.5
+    specifier: ^8.6.6
     version: 8.6.6
   '@types/uuid':
     specifier: ^9.0.0
@@ -317,6 +317,7 @@ packages:
 
   /@types/node@18.11.18:
     resolution: {integrity: sha512-DHQpWGjyQKSHj3ebjFI/wRKcqQcdR+MoFBygntYOZytCqNfkd2ZC4ARDJ2DQqhjH5p85Nnd3jhUJIXrszFX/JA==}
+    dev: true
 
   /@types/pg@8.6.6:
     resolution: {integrity: sha512-O2xNmXebtwVekJDD+02udOncjVcMZQuTEQEMpKJ0ZRf5E7/9JJX3izhKUcUifBkyKpljyUM6BTgy2trmviKlpw==}
@@ -324,6 +325,7 @@ packages:
       '@types/node': 18.11.18
       pg-protocol: 1.5.0
       pg-types: 2.2.0
+    dev: true
 
   /@types/ssh2@1.11.7:
     resolution: {integrity: sha512-MaVSlZOiekRUHnxL2NAmDkcU3+bTwz+ZRktLygjQCnxhLjDzN+XnsG6JUdoocmfxatMiqFo/6eb48uVqFaxBsg==}
@@ -590,69 +592,6 @@ packages:
   /dotenv@16.0.3:
     resolution: {integrity: sha512-7GO6HghkA5fYG9TYnNxi14/7K9f5occMlp3zXAuSxn7CKCxt9xbNWG7yF8hTCSUchlfWSe3uLmlPfigevRItzQ==}
     engines: {node: '>=12'}
-    dev: false
-
-  /drizzle-orm@0.24.5-6eae16f(@types/pg@8.6.6)(knex@2.4.0)(kysely@0.24.2)(pg@8.8.0)(postgres@3.3.4):
-    resolution: {integrity: sha512-4a5IGxOXpBTzGXcBA0XEtnh8Mzf+dCNLXX+/DJ4CQzKZVNPN+PIpcy/0fVsZMHCZQb4jlGeL3RydhOUebd299A==}
-    peerDependencies:
-      '@aws-sdk/client-rds-data': '>=3'
-      '@cloudflare/workers-types': '>=3'
-      '@libsql/client': '*'
-      '@neondatabase/serverless': '>=0.1'
-      '@planetscale/database': '>=1'
-      '@types/better-sqlite3': '*'
-      '@types/pg': '*'
-      '@types/sql.js': '*'
-      better-sqlite3: '>=7'
-      bun-types: '*'
-      knex: '*'
-      kysely: '*'
-      mysql2: '>=2'
-      pg: '>=8'
-      postgres: '>=3'
-      sql.js: '>=1'
-      sqlite3: '>=5'
-    peerDependenciesMeta:
-      '@aws-sdk/client-rds-data':
-        optional: true
-      '@cloudflare/workers-types':
-        optional: true
-      '@libsql/client':
-        optional: true
-      '@neondatabase/serverless':
-        optional: true
-      '@planetscale/database':
-        optional: true
-      '@types/better-sqlite3':
-        optional: true
-      '@types/pg':
-        optional: true
-      '@types/sql.js':
-        optional: true
-      better-sqlite3:
-        optional: true
-      bun-types:
-        optional: true
-      knex:
-        optional: true
-      kysely:
-        optional: true
-      mysql2:
-        optional: true
-      pg:
-        optional: true
-      postgres:
-        optional: true
-      sql.js:
-        optional: true
-      sqlite3:
-        optional: true
-    dependencies:
-      '@types/pg': 8.6.6
-      knex: 2.4.0(pg@8.8.0)
-      kysely: 0.24.2
-      pg: 8.8.0
-      postgres: 3.3.4
     dev: false
 
   /emoji-regex@8.0.0:

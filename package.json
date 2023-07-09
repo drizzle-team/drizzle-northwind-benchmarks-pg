@@ -14,7 +14,10 @@
     "start:knex": "tsx src/knex/benchmark",
     "start:kysely": "tsx src/kysely/benchmark",
     "start:mikro": "tsx src/mikro/benchmark",
-    "start:typeorm": "tsx src/typeorm/benchmark"
+    "start:typeorm": "tsx src/typeorm/benchmark",
+    "start:rqb-prisma": "tsx src/rqb/prisma/benchmark",
+    "start:rqb-drizzle": "tsx src/rqb/drizzle/benchmark",
+    "start:rqb-drizzle-p": "tsx src/rqb/drizzle-prepared/benchmark"
   },
   "keywords": [],
   "author": "",
@@ -41,7 +44,7 @@
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.14",
-    "@types/pg": "^8.6.5",
+    "@types/pg": "^8.6.6",
     "@types/uuid": "^9.0.0",
     "typescript": "^5.0.4"
   }
