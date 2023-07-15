@@ -1,14 +1,13 @@
+import { relations, type InferModel } from "drizzle-orm";
 import {
-  pgTable,
-  varchar,
   date,
-  text,
+  doublePrecision,
   foreignKey,
   integer,
-  doublePrecision,
+  pgTable,
+  text,
+  varchar,
 } from "drizzle-orm/pg-core";
-import { InferModel } from "drizzle-orm";
-import { relations } from "drizzle-orm";
 
 export const customers = pgTable("customers", {
   id: varchar("id", { length: 5 }).primaryKey().notNull(),
@@ -50,10 +49,10 @@ export const employees = pgTable(
       columns: [table.recipientId],
       foreignColumns: [table.id],
     }),
-  })
+  }),
 );
 
-export const employeeRelations = relations(employees, ({ one, many }) => ({
+export const employeeRelations = relations(employees, ({ one }) => ({
   recipient: one(employees, {
     fields: [employees.recipientId],
     references: [employees.id],
@@ -84,7 +83,7 @@ export const orders = pgTable("orders", {
     .references(() => employees.id, { onDelete: "cascade" }),
 });
 
-export const orderRelations = relations(orders, ({ many, one }) => ({
+export const orderRelations = relations(orders, ({ many }) => ({
   details: many(details),
 }));
 
@@ -144,7 +143,7 @@ export const details = pgTable("order_details", {
     .references(() => products.id, { onDelete: "cascade" }),
 });
 
-export const detailsRelations = relations(details, ({ many, one }) => ({
+export const detailsRelations = relations(details, ({ one }) => ({
   order: one(orders, { fields: [details.orderId], references: [orders.id] }),
   product: one(products, {
     fields: [details.productId],

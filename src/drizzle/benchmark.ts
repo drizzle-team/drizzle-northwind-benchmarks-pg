@@ -1,31 +1,26 @@
-import { run, bench } from "mitata";
-import Docker from 'dockerode';
-import { v4 as uuid } from 'uuid';
-import getPort from 'get-port';
-import { asc, eq, ilike } from "drizzle-orm/expressions";
 import dotenv from "dotenv";
-import { sql } from "drizzle-orm";
-import {
-  employees,
-  customers,
-  suppliers,
-  products,
-  orders,
-  details,
-} from "./schema";
+import { asc, eq, ilike, sql } from "drizzle-orm";
+import { drizzle as drizzleDb } from "drizzle-orm/node-postgres";
+import { alias } from "drizzle-orm/pg-core";
+import { bench, run } from "mitata";
+import { Pool } from "pg";
 import {
   customerIds,
+  customerSearches,
   employeeIds,
   orderIds,
   productIds,
-  customerSearches,
   productSearches,
   supplierIds,
 } from "../common/meta";
-import { alias } from "drizzle-orm/pg-core";
-import { NodePgDatabase, drizzle as drizzleDb } from "drizzle-orm/node-postgres/driver";
-import postgres from 'postgres';
-import { Pool } from "pg";
+import {
+  customers,
+  details,
+  employees,
+  orders,
+  products,
+  suppliers,
+} from "./schema";
 
 dotenv.config();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -143,7 +138,10 @@ bench("Drizzle-ORM Products: getInfo", async () => {
 
 bench("Drizzle-ORM Products: search", async () => {
   for (const it of productSearches) {
-    await drizzle.select().from(products).where(ilike(products.name, `%${it}%`));
+    await drizzle
+      .select()
+      .from(products)
+      .where(ilike(products.name, `%${it}%`));
   }
 });
 
@@ -190,7 +188,7 @@ bench("Drizzle-ORM Orders: getById", async () => {
 
 bench("Drizzle-ORM Orders: getInfo", async () => {
   for (const id of orderIds) {
-    drizzle
+    await drizzle
       .select()
       .from(orders)
       .leftJoin(details, eq(orders.id, details.orderId))
@@ -204,4 +202,4 @@ const main = async () => {
   await run();
 };
 
-main();
+void main();

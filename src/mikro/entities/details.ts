@@ -15,11 +15,13 @@ export class Detail {
 
   @PrimaryKey({ fieldName: 'order_id' })
     orderId: string;
+
   @ManyToOne(() => Order)
     order: Order;
 
   @PrimaryKey({ fieldName: 'product_id' })
     productId: string;
+
   @ManyToOne(() => Product)
     product: Product;
 }

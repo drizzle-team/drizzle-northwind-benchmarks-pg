@@ -1,15 +1,16 @@
+import { ports } from "@/utils";
+import dotenv from "dotenv";
 import knex from "knex";
 import { bench, run } from "mitata";
 import {
   customerIds,
+  customerSearches,
   employeeIds,
   orderIds,
   productIds,
   productSearches,
-  customerSearches,
   supplierIds,
 } from "../common/meta";
-import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -18,7 +19,7 @@ const db = knex({
   client: "pg",
   connection: {
     host: DB_HOST,
-    port: +DB_PORT!,
+    port: +(DB_PORT ?? ports.knex),
     user: DB_USER,
     password: DB_PASSWORD,
     database: DB_NAME,
@@ -183,4 +184,4 @@ bench("Knex ORM Orders: getInfo", async () => {
 const main = async () => {
   await run();
 };
-main();
+void main();

@@ -1,51 +1,52 @@
-import { run, bench, group } from "mitata";
-import { eq, ilike } from "drizzle-orm/expressions";
-import { sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
-import { drizzle as drizzleDb } from "drizzle-orm/postgres-js/driver";
-import { placeholder } from "drizzle-orm/sql";
-import pkg from "postgres";
-import knex from "knex";
-import dotenv from "dotenv";
-import { Kysely, sql as k_sql, PostgresDialect } from "kysely";
-import { DataSource, ILike } from "typeorm";
 import { MikroORM } from "@mikro-orm/core";
+import { type PostgreSqlDriver } from "@mikro-orm/postgresql";
 import { TsMorphMetadataProvider } from "@mikro-orm/reflection";
-import { PostgreSqlDriver, SqlEntityManager } from "@mikro-orm/postgresql";
-import * as Prisma from "@prisma/client";
+import dotenv from "dotenv";
+import { eq, ilike, placeholder, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import knex from "knex";
+import { Kysely, sql as k_sql } from "kysely";
+import { bench, group, run } from "mitata";
+import pkg from "postgres";
+import { DataSource, ILike } from "typeorm";
 
-import { Database } from "@/kysely/db";
-import { PostgresJSDialect } from "kysely-postgres-js";
-import { Customer } from "@/typeorm/entities/customers";
-import { Employee } from "@/typeorm/entities/employees";
-import { Supplier } from "@/typeorm/entities/suppliers";
-import { Order } from "@/typeorm/entities/orders";
-import { Product } from "@/typeorm/entities/products";
-import { Detail } from "@/typeorm/entities/details";
 import {
-  employees,
   customers,
-  suppliers,
-  products,
-  orders,
   details,
+  employees,
+  orders,
+  products,
+  suppliers,
 } from "@/drizzle/schema";
+import { type Database } from "@/kysely/db";
 import { Customer as m_Customer } from "@/mikro/entities/customers";
 import { Detail as m_Detail } from "@/mikro/entities/details";
 import { Employee as m_Employee } from "@/mikro/entities/employees";
 import { Order as m_Order } from "@/mikro/entities/orders";
 import { Product as m_Product } from "@/mikro/entities/products";
 import { Supplier as m_Supplier } from "@/mikro/entities/suppliers";
+import { Customer } from "@/typeorm/entities/customers";
+import { Detail } from "@/typeorm/entities/details";
+import { Employee } from "@/typeorm/entities/employees";
+import { Order } from "@/typeorm/entities/orders";
+import { Product } from "@/typeorm/entities/products";
+import { Supplier } from "@/typeorm/entities/suppliers";
+import { createDockerDBs, deleteDockerDBs, ports } from "@/utils";
+import { PrismaClient } from "@prisma/client";
+import {
+  drizzle as drizzleDb,
+  type PostgresJsDatabase,
+} from "drizzle-orm/postgres-js";
+import { PostgresJSDialect } from "kysely-postgres-js";
 import {
   customerIds,
+  customerSearches,
   employeeIds,
   orderIds,
   productIds,
-  customerSearches,
   productSearches,
   supplierIds,
 } from "./meta";
-import { createDockerDBs, ports, deleteDockerDBs, DockerDBs } from "@/utils";
 
 dotenv.config();
 
@@ -56,7 +57,7 @@ const DB_PASSWORD = process.env.DB_PASSWORD ?? "postgres";
 const DB_PORT = process.env.DB_PORT;
 
 console.log(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT);
-const port = Number(DB_PORT || ports.drizzle);
+const port = Number(DB_PORT ?? ports.drizzle);
 console.log(port);
 
 const dockersDbs = await createDockerDBs(ports);
@@ -65,7 +66,7 @@ const dockersDbs = await createDockerDBs(ports);
 // pg connect
 const postgresJs = pkg({
   host: DB_HOST,
-  port: Number(DB_PORT || ports.pg),
+  port: Number(DB_PORT ?? ports.pg),
   user: DB_USER,
   password: DB_PASSWORD,
   database: DB_NAME,
@@ -75,7 +76,7 @@ const postgresJs = pkg({
 // pgPrepared connect
 const postgresJsPrepared = pkg({
   host: DB_HOST,
-  port: Number(DB_PORT || ports.pgPrepared),
+  port: Number(DB_PORT ?? ports.pgPrepared),
   user: DB_USER,
   password: DB_PASSWORD,
   database: DB_NAME,
@@ -87,20 +88,20 @@ const drizzlePool = pkg(
   process.env.DATABASE_URL ??
     `postgres://postgres:postgres@localhost:${ports.drizzle}/postgres`,
 );
-const drizzle = drizzleDb(drizzlePool);
+const drizzle: PostgresJsDatabase = drizzleDb(drizzlePool);
 
 // drizzlePrepared  connect
 const drizzlePreparedPool = pkg(
   process.env.DATABASE_URL ??
     `postgres://postgres:postgres@localhost:${ports.drizzlePrepared}/postgres`,
 );
-const drizzlePrepared = drizzleDb(drizzlePreparedPool);
+const drizzlePrepared: PostgresJsDatabase = drizzleDb(drizzlePreparedPool);
 
 // mikro connect
 const mikroOrm = await MikroORM.init<PostgreSqlDriver>({
   type: "postgresql",
   host: DB_HOST,
-  port: Number(DB_PORT || ports.mikroOrm),
+  port: Number(DB_PORT ?? ports.mikroOrm),
   user: DB_USER,
   password: DB_PASSWORD,
   dbName: DB_NAME,
@@ -114,7 +115,7 @@ const knexDb = knex({
   client: "pg",
   connection: {
     host: DB_HOST,
-    port: Number(DB_PORT || ports.knex),
+    port: Number(DB_PORT ?? ports.knex),
     user: DB_USER,
     password: DB_PASSWORD,
     database: DB_NAME,
@@ -127,7 +128,7 @@ const kysely = new Kysely<Database>({
   dialect: new PostgresJSDialect({
     options: {
       host: DB_HOST,
-      port: Number(DB_PORT || ports.kysely),
+      port: Number(DB_PORT ?? ports.kysely),
       user: DB_USER,
       password: DB_PASSWORD,
       database: DB_NAME,
@@ -137,13 +138,13 @@ const kysely = new Kysely<Database>({
 });
 
 // prisma connect
-const prisma = new Prisma.PrismaClient();
+const prisma = new PrismaClient();
 
 // typeorm connect
 const typeorm = new DataSource({
   type: "postgres",
   host: DB_HOST,
-  port: Number(DB_PORT || ports.typeOrm),
+  port: Number(DB_PORT ?? ports.typeOrm),
   username: DB_USER,
   password: DB_PASSWORD,
   database: DB_NAME,
@@ -353,7 +354,7 @@ group("select * from customer where company_name ilike ?", () => {
     mikro.clear();
   });
 
-  const repo = typeorm.getRepository(Customer);
+  const _repo = typeorm.getRepository(Customer);
   bench("typeorm", async () => {
     for (const it of customerSearches) {
       await typeorm.getRepository(Customer).find({
@@ -530,7 +531,7 @@ group("select * from employee where id = ? left join reportee", () => {
             ])
             .as("e2"),
           "e2.e2_id",
-          "e1.recipient_id"
+          "e1.recipient_id",
         )
         .execute();
     }
@@ -837,7 +838,7 @@ group("SELECT * FROM product LEFT JOIN supplier WHERE product.id = ?", () => {
             ])
             .as("s1"),
           "s1.s_id",
-          "products.supplier_id"
+          "products.supplier_id",
         )
         .execute();
     }
@@ -1059,7 +1060,7 @@ group("select all order with sum and count", () => {
 
   bench("mikro", async () => {
     const result = await mikro.find(m_Order, {}, { populate: ["details"] });
-    const orders = result.map((item) => {
+    const _orders = result.map((item) => {
       const details = item.details.getItems();
       return {
         id: item.id,
@@ -1070,11 +1071,11 @@ group("select all order with sum and count", () => {
         productsCount: item.details.length,
         quantitySum: details.reduce(
           (sum, deteil) => (sum += +deteil.quantity),
-          0
+          0,
         ),
         totalPrice: details.reduce(
           (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-          0
+          0,
         ),
       };
     });
@@ -1087,7 +1088,7 @@ group("select all order with sum and count", () => {
         details: true,
       },
     });
-    const orders = result.map((item) => {
+    const _orders = result.map((item) => {
       return {
         id: item.id,
         shippedDate: item.shippedDate,
@@ -1097,11 +1098,11 @@ group("select all order with sum and count", () => {
         productsCount: item.details.length,
         quantitySum: item.details.reduce(
           (sum, deteil) => (sum += +deteil.quantity),
-          0
+          0,
         ),
         totalPrice: item.details.reduce(
           (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-          0
+          0,
         ),
       };
     });
@@ -1113,7 +1114,7 @@ group("select all order with sum and count", () => {
         details: true,
       },
     });
-    const orders = result.map((item) => {
+    const _orders = result.map((item) => {
       return {
         id: item.id,
         shippedDate: item.shippedDate,
@@ -1123,11 +1124,11 @@ group("select all order with sum and count", () => {
         productsCount: item.details.length,
         quantitySum: item.details.reduce(
           (sum, deteil) => (sum += +deteil.quantity),
-          0
+          0,
         ),
         totalPrice: item.details.reduce(
           (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-          0
+          0,
         ),
       };
     });
@@ -1162,7 +1163,10 @@ group("select order with sum and count using limit with offset", () => {
   bench("postgres.js", async () => {
     let offset = 0;
     while (true) {
-      const result = await postgresJsPrepared.unsafe(query.text, [limit, offset]);
+      const result = await postgresJsPrepared.unsafe(query.text, [
+        limit,
+        offset,
+      ]);
       offset += limit;
       if (result.length < limit) break;
     }
@@ -1282,9 +1286,9 @@ group("select order with sum and count using limit with offset", () => {
       const result = await mikro.find(
         m_Order,
         {},
-        { populate: ["details"], limit, offset, orderBy: { id: "ASC" } }
+        { populate: ["details"], limit, offset, orderBy: { id: "ASC" } },
       );
-      const orders = result.map((item) => {
+      const _orders = result.map((item) => {
         const details = item.details.getItems();
         return {
           id: item.id,
@@ -1295,11 +1299,11 @@ group("select order with sum and count using limit with offset", () => {
           productsCount: item.details.length,
           quantitySum: details.reduce(
             (sum, deteil) => (sum += +deteil.quantity),
-            0
+            0,
           ),
           totalPrice: details.reduce(
             (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-            0
+            0,
           ),
         };
       });
@@ -1322,7 +1326,7 @@ group("select order with sum and count using limit with offset", () => {
         take: limit,
         skip: offset,
       });
-      const orders = result.map((item) => {
+      const _orders = result.map((item) => {
         return {
           id: item.id,
           shippedDate: item.shippedDate,
@@ -1332,11 +1336,11 @@ group("select order with sum and count using limit with offset", () => {
           productsCount: item.details.length,
           quantitySum: item.details.reduce(
             (sum, deteil) => (sum += +deteil.quantity),
-            0
+            0,
           ),
           totalPrice: item.details.reduce(
             (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-            0
+            0,
           ),
         };
       });
@@ -1359,7 +1363,7 @@ group("select order with sum and count using limit with offset", () => {
         take: limit,
         skip: offset,
       });
-      const orders = result.map((item) => {
+      const _orders = result.map((item) => {
         return {
           id: item.id,
           shippedDate: item.shippedDate,
@@ -1369,11 +1373,11 @@ group("select order with sum and count using limit with offset", () => {
           productsCount: item.details.length,
           quantitySum: item.details.reduce(
             (sum, deteil) => (sum += +deteil.quantity),
-            0
+            0,
           ),
           totalPrice: item.details.reduce(
             (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-            0
+            0,
           ),
         };
       });
@@ -1417,7 +1421,7 @@ group("select order where order.id = ? with sum and count", () => {
     await Promise.all(
       orderIds.map(async (id) => {
         await postgresJsPrepared.unsafe(query.text, [id]);
-      })
+      }),
     );
     // for (const id of orderIds) {
     //   await pg.query(query, [id]);
@@ -1443,7 +1447,7 @@ group("select order where order.id = ? with sum and count", () => {
           .leftJoin(details, eq(orders.id, details.orderId))
           .where(eq(orders.id, id))
           .groupBy(orders.id);
-      })
+      }),
     );
     // for (const id of orderIds) {
     //   await drizzle
@@ -1487,7 +1491,7 @@ group("select order where order.id = ? with sum and count", () => {
     await Promise.all(
       orderIds.map(async (id) => {
         await prepared.execute({ orderId: id });
-      })
+      }),
     );
   });
 
@@ -1510,7 +1514,7 @@ group("select order where order.id = ? with sum and count", () => {
             total_price: knexDb.raw("?? * ??", ["quantity", "unit_price"]),
           })
           .groupBy("orders.id");
-      })
+      }),
     );
     // for (const id of orderIds) {
     //   await knexDb("orders")
@@ -1549,7 +1553,7 @@ group("select order where order.id = ? with sum and count", () => {
           .where("orders.id", "=", id)
           .groupBy("orders.id")
           .execute();
-      })
+      }),
     );
 
     // for (const id of orderIds) {
@@ -1578,26 +1582,26 @@ group("select order where order.id = ? with sum and count", () => {
         const result = await mikro.findOne(
           m_Order,
           { id },
-          { populate: ["details"] }
+          { populate: ["details"] },
         );
-        const details = result!.details.getItems();
-        const order = {
-          id: result!.id,
-          shippedDate: result!.shippedDate,
-          shipName: result!.shipName,
-          shipCity: result!.shipCity,
-          shipCountry: result!.shipCountry,
-          productsCount: result!.details.length,
-          quantitySum: details.reduce(
+        const details = result?.details.getItems();
+        const _order = {
+          id: result?.id,
+          shippedDate: result?.shippedDate,
+          shipName: result?.shipName,
+          shipCity: result?.shipCity,
+          shipCountry: result?.shipCountry,
+          productsCount: result?.details.length,
+          quantitySum: details?.reduce(
             (sum, deteil) => (sum += +deteil.quantity),
-            0
+            0,
           ),
-          totalPrice: details.reduce(
+          totalPrice: details?.reduce(
             (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-            0
+            0,
           ),
         };
-      })
+      }),
     );
     // for (const id of orderIds) {
     //   const result = await mikro.findOne(
@@ -1636,23 +1640,25 @@ group("select order where order.id = ? with sum and count", () => {
             id,
           },
         });
-        const order = {
-          id: result!.id,
-          shippedDate: result!.shippedDate,
-          shipName: result!.shipName,
-          shipCity: result!.shipCity,
-          shipCountry: result!.shipCountry,
-          productsCount: result!.details.length,
-          quantitySum: result!.details.reduce(
-            (sum, deteil) => (sum += +deteil.quantity),
-            0
-          ),
-          totalPrice: result!.details.reduce(
-            (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-            0
-          ),
-        };
-      })
+        if (result !== null) {
+          const _order = {
+            id: result.id,
+            shippedDate: result.shippedDate,
+            shipName: result.shipName,
+            shipCity: result.shipCity,
+            shipCountry: result.shipCountry,
+            productsCount: result.details.length,
+            quantitySum: result.details.reduce(
+              (sum, deteil) => (sum += +deteil.quantity),
+              0,
+            ),
+            totalPrice: result.details.reduce(
+              (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
+              0,
+            ),
+          };
+        }
+      }),
     );
     // for (const id of orderIds) {
     //   const result = await prisma.order.findFirst({
@@ -1693,23 +1699,25 @@ group("select order where order.id = ? with sum and count", () => {
             id,
           },
         });
-        const order = {
-          id: result!.id,
-          shippedDate: result!.shippedDate,
-          shipName: result!.shipName,
-          shipCity: result!.shipCity,
-          shipCountry: result!.shipCountry,
-          productsCount: result!.details.length,
-          quantitySum: result!.details.reduce(
-            (sum, deteil) => (sum += +deteil.quantity),
-            0
-          ),
-          totalPrice: result!.details.reduce(
-            (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-            0
-          ),
-        };
-      })
+        if (result != null) {
+          const _order = {
+            id: result.id,
+            shippedDate: result.shippedDate,
+            shipName: result.shipName,
+            shipCity: result.shipCity,
+            shipCountry: result.shipCountry,
+            productsCount: result.details.length,
+            quantitySum: result.details.reduce(
+              (sum, deteil) => (sum += +deteil.quantity),
+              0,
+            ),
+            totalPrice: result.details.reduce(
+              (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
+              0,
+            ),
+          };
+        }
+      }),
     );
     // for (const id of orderIds) {
     //   const result = await typeorm.getRepository(Order).findOne({
@@ -1845,7 +1853,7 @@ group("SELECT * FROM order_detail WHERE order_id = ?", () => {
             ])
             .as("od"),
           "od.order_id",
-          "orders.id"
+          "orders.id",
         )
         .leftJoin(
           kysely
@@ -1863,7 +1871,7 @@ group("SELECT * FROM order_detail WHERE order_id = ?", () => {
             ])
             .as("p"),
           "p.p_id",
-          "od.product_id"
+          "od.product_id",
         )
         .execute();
     }
@@ -1874,7 +1882,7 @@ group("SELECT * FROM order_detail WHERE order_id = ?", () => {
       await mikro.find(
         m_Order,
         { id },
-        { populate: ["details", "details.product"] }
+        { populate: ["details", "details.product"] },
       );
     }
     mikro.clear();
@@ -1915,4 +1923,4 @@ const main = async () => {
   process.exit(0);
 };
 
-main();
+void main();

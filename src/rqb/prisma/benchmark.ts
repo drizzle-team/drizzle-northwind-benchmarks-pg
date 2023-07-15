@@ -1,19 +1,7 @@
-import { run, bench } from "mitata";
 import * as Prisma from "@prisma/client";
-import util from 'node:util';
+import { bench, run } from "mitata";
 
-import path from "node:path";
-import fs from "fs";
-
-import {
-  customerIds,
-  employeeIds,
-  orderIds,
-  productIds,
-  productSearches,
-  customerSearches,
-  supplierIds,
-} from "../../common/meta";
+import { employeeIds, orderIds, productIds } from "../../common/meta";
 
 const prisma = new Prisma.PrismaClient();
 
@@ -121,4 +109,4 @@ const main = async () => {
   // console.log(util.inspect(g1, {depth: null, colors: true}))
 };
 
-main();
+void main();

@@ -1,4 +1,4 @@
- // prettier-ignore
+// prettier-ignore
 export const customerIds = [
   'LAZYK', 'FOLIG', 'QUEDE', 'MORGK', 'SAVEA', 'AROUT',
   'VICTE', 'ISLAT', 'EASTC', 'BOLID', 'SIMOB', 'LEHMS',
@@ -48,21 +48,32 @@ export const productSearches = [
 
 const employeeIdStart = 1;
 const employeeIdEnd = 10;
-export const employeeIds = Array.from({ length: employeeIdEnd - employeeIdStart }, (_, i) =>  String(i + employeeIdStart));
+export const employeeIds = Array.from(
+  { length: employeeIdEnd - employeeIdStart },
+  (_, i) => String(i + employeeIdStart),
+);
 
 const supplierIdStart = 1;
 const supplierIdEnd = 30;
-export const supplierIds = Array.from({ length: supplierIdEnd - supplierIdStart }, (_, i) =>  String(i + supplierIdStart));
+export const supplierIds = Array.from(
+  { length: supplierIdEnd - supplierIdStart },
+  (_, i) => String(i + supplierIdStart),
+);
 
-const productIdStart = 1;
+const _productIdStart = 1;
 const productIdEnd = 78;
-export const productIds = Array.from({ length:  productIdEnd   }, (_, i) => String(i + 1));
+export const productIds = Array.from({ length: productIdEnd }, (_, i) =>
+  String(i + 1),
+);
 
 const getRandomOrderIds = () => {
   const firstId = 10248;
   const lastId = 11077;
   const orderIds = new Set<string>();
-  while (orderIds.size <= 200) orderIds.add(String(Math.round(firstId + Math.random() * (lastId - firstId))));
+  while (orderIds.size <= 200)
+    orderIds.add(
+      String(Math.round(firstId + Math.random() * (lastId - firstId))),
+    );
   return Array.from(orderIds);
 };
 

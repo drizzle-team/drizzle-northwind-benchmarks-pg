@@ -1,17 +1,10 @@
-import { run, bench } from "mitata";
-import path from "node:path";
-import util from 'node:util';
-import fs from "fs";
-import {
-  employeeIds,
-  orderIds,
-  productIds,
-} from "../../common/meta";
+import { bench, run } from "mitata";
+import { employeeIds, orderIds, productIds } from "../../common/meta";
 
 import { drizzle as drizzleDb } from "drizzle-orm/node-postgres";
 
+import { eq } from "drizzle-orm";
 import pkg from "pg";
-import { eq, sql } from "drizzle-orm";
 
 import * as schema from "./schema";
 
@@ -27,10 +20,10 @@ bench("Drizzle ORM Employees: getInfo", async () => {
   for (const id of employeeIds) {
     await drizzle.query.employees.findFirst({
       where: eq(schema.employees.id, id),
-      include: {
-        recipient: true
-      }
-    })
+      with: {
+        recipient: true,
+      },
+    });
   }
 });
 
@@ -38,67 +31,67 @@ bench("Drizzle ORM Products: getInfo", async () => {
   for (const id of productIds) {
     await drizzle.query.products.findFirst({
       where: eq(schema.products.id, id),
-      include: {
-        supplier: true
-      }
-    })
+      with: {
+        supplier: true,
+      },
+    });
   }
 });
 
 bench("Drizzle ORM Orders: 1 relation", async () => {
   await drizzle.query.orders.findMany({
-    include: {
+    with: {
       details: true,
-    }
-  })
+    },
+  });
 });
 
 bench("Drizzle ORM Orders: 2 relations", async () => {
   await drizzle.query.orders.findMany({
-    include: {
+    with: {
       details: {
-        include: {
+        with: {
           product: true,
           order: true,
         },
       },
-    }
-  })
+    },
+  });
 });
 
 bench("Drizzle ORM Orders: 3 relataions", async () => {
   await drizzle.query.orders.findMany({
-    include: {
+    with: {
       details: {
-        include: {
+        with: {
           product: {
-            include: {
+            with: {
               details: true,
             },
           },
           order: {
-            include: {
+            with: {
               details: true,
             },
           },
         },
       },
-    }
-  })
+    },
+  });
 });
 
 bench("Drizzle ORM Orders: getInfo", async () => {
   for (const id of orderIds) {
     await drizzle.query.orders.findMany({
       where: eq(schema.orders.id, id),
-      include: {
+      with: {
         details: {
-          include: {
-            product: true
+          with: {
+            product: true,
           },
         },
-      }
-    })
+      },
+    });
   }
 });
 
@@ -111,7 +104,7 @@ const main = async () => {
 
   // const g = await drizzle.query.employees.findFirst({
   //   where: eq(schema.employees.id, employeeIds[0]),
-  //   include: {
+  //   with: {
   //     recipient: true
   //   }
   // })
@@ -119,4 +112,4 @@ const main = async () => {
   // console.log(util.inspect(g, {depth: null, colors: true}))
 };
 
-main();
+void main();

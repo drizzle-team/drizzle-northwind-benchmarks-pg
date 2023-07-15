@@ -32,6 +32,7 @@ export class Product {
 
   @Column({ name: 'supplier_id', type: 'varchar'  })
     supplierId: string;
+
   @ManyToOne(() => Supplier, (supplier) => supplier.products, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'supplier_id' })
     supplier: Supplier;

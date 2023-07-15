@@ -1,12 +1,10 @@
-import { run, bench } from "mitata";
-import path from "node:path";
-import fs from "fs";
+import { bench, run } from "mitata";
 import { employeeIds, orderIds, productIds } from "../../common/meta";
 
 import { drizzle as drizzleDb } from "drizzle-orm/node-postgres";
 
+import { eq, placeholder } from "drizzle-orm";
 import pkg from "pg";
-import { eq, placeholder, sql } from "drizzle-orm";
 
 import * as schema from "./schema";
 
@@ -21,7 +19,7 @@ const drizzle = drizzleDb(drizzlePool, { schema });
 const p1 = drizzle.query.employees
   .findFirst({
     where: eq(schema.employees.id, placeholder("id")),
-    include: {
+    with: {
       recipient: true,
     },
   })
@@ -36,7 +34,7 @@ bench("Drizzle ORM Employees: getInfo", async () => {
 const p2 = drizzle.query.products
   .findFirst({
     where: eq(schema.products.id, placeholder("id")),
-    include: {
+    with: {
       supplier: true,
     },
   })
@@ -50,7 +48,7 @@ bench("Drizzle ORM Products: getInfo", async () => {
 
 const p3 = drizzle.query.orders
   .findMany({
-    include: {
+    with: {
       details: true,
     },
   })
@@ -62,9 +60,9 @@ bench("Drizzle ORM Orders: 1 relation", async () => {
 
 const p4 = drizzle.query.orders
   .findMany({
-    include: {
+    with: {
       details: {
-        include: {
+        with: {
           product: true,
           order: true,
         },
@@ -79,16 +77,16 @@ bench("Drizzle ORM Orders: 2 relations", async () => {
 
 const p5 = drizzle.query.orders
   .findMany({
-    include: {
+    with: {
       details: {
-        include: {
+        with: {
           product: {
-            include: {
+            with: {
               details: true,
             },
           },
           order: {
-            include: {
+            with: {
               details: true,
             },
           },
@@ -105,9 +103,9 @@ bench("Drizzle ORM Orders: 3 relataions", async () => {
 const p6 = drizzle.query.orders
   .findMany({
     where: eq(schema.orders.id, placeholder("id")),
-    include: {
+    with: {
       details: {
-        include: {
+        with: {
           product: true,
         },
       },
@@ -129,4 +127,4 @@ const main = async () => {
   await run();
 };
 
-main();
+void main();

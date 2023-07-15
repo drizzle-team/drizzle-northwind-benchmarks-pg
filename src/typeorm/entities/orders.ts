@@ -42,12 +42,14 @@ export class Order {
 
   @Column({ name: 'customer_id', type: 'varchar' })
     customerId: string;
+
   @ManyToOne(() => Customer, (customer) => customer.orders, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'customer_id' })
     customer: Customer;
 
   @Column({ name: 'employee_id', type: 'varchar' })
     employeeId: string;
+
   @ManyToOne(() => Employee, (employee) => employee.orders, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'employee_id' })
     employee: Employee;
