@@ -47,6 +47,7 @@ export class Employee {
 
   @Property({ fieldName: 'recipient_id', columnType: 'varchar', nullable: true })
     recipientId?: string;
+
   @ManyToOne(() => Employee)
     recipient?: Employee;
 

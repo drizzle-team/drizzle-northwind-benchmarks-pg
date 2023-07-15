@@ -1,18 +1,16 @@
-import { run, bench } from "mitata";
-import * as Prisma from "@prisma/client";
-
+import { PrismaClient } from "@prisma/client";
+import { bench, run } from "mitata";
 import {
   customerIds,
+  customerSearches,
   employeeIds,
   orderIds,
   productIds,
   productSearches,
-  customerSearches,
   supplierIds,
 } from "../common/meta";
-import { products } from "../drizzle/schema";
 
-const prisma = new Prisma.PrismaClient();
+const prisma = new PrismaClient();
 
 bench("Prisma ORM Customers: getAll", async () => {
   await prisma.customer.findMany();
@@ -107,7 +105,7 @@ bench("Prisma ORM Orders: getAll", async () => {
       details: true,
     },
   });
-  const orders = result.map((item) => {
+  const _orders = result.map((item) => {
     return {
       id: item.id,
       shippedDate: item.shippedDate,
@@ -117,11 +115,11 @@ bench("Prisma ORM Orders: getAll", async () => {
       productsCount: item.details.length,
       quantitySum: item.details.reduce(
         (sum, deteil) => (sum += +deteil.quantity),
-        0
+        0,
       ),
       totalPrice: item.details.reduce(
         (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-        0
+        0,
       ),
     };
   });
@@ -137,22 +135,24 @@ bench("Prisma ORM Orders: getById", async () => {
         id,
       },
     });
-    const order = {
-        id: result!.id,
-        shippedDate: result!.shippedDate,
-        shipName: result!.shipName,
-        shipCity: result!.shipCity,
-        shipCountry: result!.shipCountry,
-        productsCount: result!.details.length,
-        quantitySum: result!.details.reduce(
+    if (result !== null) {
+      const _order = {
+        id: result.id,
+        shippedDate: result.shippedDate,
+        shipName: result.shipName,
+        shipCity: result.shipCity,
+        shipCountry: result.shipCountry,
+        productsCount: result.details.length,
+        quantitySum: result.details.reduce(
           (sum, deteil) => (sum += +deteil.quantity),
-          0
+          0,
         ),
-        totalPrice: result!.details.reduce(
+        totalPrice: result.details.reduce(
           (sum, deteil) => (sum += +deteil.quantity * +deteil.unitPrice),
-          0
+          0,
         ),
       };
+    }
   }
 });
 
@@ -177,4 +177,4 @@ const main = async () => {
   await run();
 };
 
-main();
+void main();

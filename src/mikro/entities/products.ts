@@ -30,6 +30,7 @@ export class Product {
 
   @Property({ fieldName: 'supplier_id' })
     supplierId: string;
+
   @ManyToOne(() => Supplier)
     supplier: Supplier;
 

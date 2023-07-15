@@ -1,65 +1,76 @@
-import { run, bench, group } from "mitata";
-import { asc, eq, ilike } from "drizzle-orm/expressions";
-
-dotenv.config();
 import dotenv from "dotenv";
-import { sql } from "drizzle-orm";
-import {
-  employees,
-  customers,
-  suppliers,
-  products,
-  orders,
-  details,
-} from "../src/drizzle/schema";
+import { eq, ilike } from "drizzle-orm";
+import { drizzle as drizzleDb } from "drizzle-orm/node-postgres";
+import { alias } from "drizzle-orm/pg-core";
+import { bench, group, run } from "mitata";
+import { Pool } from "pg";
 import {
   customerIds,
+  customerSearches,
   employeeIds,
   orderIds,
   productIds,
-  customerSearches,
   productSearches,
   supplierIds,
 } from "../src/common/meta";
-import { PgConnector, PgDatabase, alias } from "drizzle-orm-pg";
-import { Pool } from "pg";
+import {
+  customers,
+  details,
+  employees,
+  orders,
+  products,
+  suppliers,
+} from "../src/drizzle/schema";
+import { ports } from "./utils";
+
+dotenv.config();
 
 dotenv.config();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const connector = new PgConnector(pool);
-let drizzle: PgDatabase;
 
 const { DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD } = process.env;
 
-const db = new Pool({
+const pgDb = new Pool({
   host: DB_HOST,
-  port: +DB_PORT!,
+  port: +(DB_PORT ?? ports.pg),
   user: DB_USER,
   password: DB_PASSWORD,
   database: DB_NAME,
 });
 
+const pgPreparedDb = new Pool({
+  host: DB_HOST,
+  port: +(DB_PORT ?? ports.pgPrepared),
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: DB_NAME,
+});
+
+// const connector = new PgConnector(pool);
+const drizzle = drizzleDb(pool);
+
 group({ name: "Drizzle", summary: false }, () => {
   bench("Drizzle-ORM Customers: getAll", async () => {
-    await drizzle.select(customers);
+    await drizzle.select().from(customers);
   });
 
   bench("Drizzle-ORM Customers: getInfo", async () => {
     for (const id of customerIds) {
-      await drizzle.select(customers).where(eq(customers.id, id));
+      await drizzle.select().from(customers).where(eq(customers.id, id));
     }
   });
 
   bench("Drizzle-ORM Customers: search", async () => {
     for (const it of customerSearches) {
       await drizzle
-        .select(customers)
+        .select()
+        .from(customers)
         .where(ilike(customers.companyName, `%${it}%`));
     }
   });
 
   bench("Drizzle-ORM Employees: getAll", async () => {
-    await drizzle.select(employees);
+    await drizzle.select().from(employees);
   });
 
   bench("Drizzle-ORM Employees: getInfo", async () => {
@@ -67,30 +78,32 @@ group({ name: "Drizzle", summary: false }, () => {
 
     for (const id of employeeIds) {
       await drizzle
-        .select(employees)
+        .select()
+        .from(employees)
         .leftJoin(e2, eq(e2.id, employees.recipientId))
         .where(eq(employees.id, id));
     }
   });
 
   bench("Drizzle-ORM Suppliers: getAll", async () => {
-    await drizzle.select(suppliers);
+    await drizzle.select().from(suppliers);
   });
 
   bench("Drizzle-ORM Suppliers: getInfo", async () => {
     for (const id of supplierIds) {
-      await drizzle.select(suppliers).where(eq(suppliers.id, id));
+      await drizzle.select().from(suppliers).where(eq(suppliers.id, id));
     }
   });
 
   bench("Drizzle-ORM Products: getAll", async () => {
-    await drizzle.select(products);
+    await drizzle.select().from(products);
   });
 
   bench("Drizzle-ORM Products: getInfo", async () => {
     for (const id of productIds) {
       await drizzle
-        .select(products)
+        .select()
+        .from(products)
         .leftJoin(suppliers, eq(products.supplierId, suppliers.id))
         .where(eq(products.id, id));
     }
@@ -98,7 +111,10 @@ group({ name: "Drizzle", summary: false }, () => {
 
   bench("Drizzle-ORM Products: search", async () => {
     for (const it of productSearches) {
-      await drizzle.select(products).where(ilike(products.name, `%${it}%`));
+      await drizzle
+        .select()
+        .from(products)
+        .where(ilike(products.name, `%${it}%`));
     }
   });
 
@@ -122,7 +138,8 @@ group({ name: "Drizzle", summary: false }, () => {
   bench("Drizzle-ORM Orders: getInfo", async () => {
     for (const id of orderIds) {
       await drizzle
-        .select(orders)
+        .select()
+        .from(orders)
         .leftJoin(details, eq(orders.id, details.orderId))
         .leftJoin(products, eq(details.productId, products.id))
         .where(eq(orders.id, id));
@@ -136,7 +153,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
     text: 'select * from "customers"',
   };
   bench("Pg Driver Customers: getAll", async () => {
-    await db.query(query);
+    await pgPreparedDb.query(query);
   });
 
   const query2 = {
@@ -145,7 +162,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
   };
   bench("Pg Driver Customers: getInfo", async () => {
     for await (const id of customerIds) {
-      await db.query(query2, [id]);
+      await pgPreparedDb.query(query2, [id]);
     }
   });
 
@@ -155,7 +172,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
   };
   bench("Pg Driver Customers: search", async () => {
     for await (const it of customerSearches) {
-      await db.query(query3, [`%${it}%`]);
+      await pgPreparedDb.query(query3, [`%${it}%`]);
     }
   });
 
@@ -164,7 +181,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
     text: 'select * from "employees"',
   };
   bench("Pg Driver Employees: getAll", async () => {
-    await db.query(query4);
+    await pgPreparedDb.query(query4);
   });
 
   const query5 = {
@@ -174,7 +191,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
   };
   bench("Pg Driver Employees: getInfo", async () => {
     for await (const id of employeeIds) {
-      await db.query(query5, [id]);
+      await pgPreparedDb.query(query5, [id]);
     }
   });
 
@@ -184,7 +201,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
   };
 
   bench("Pg Driver Suppliers: getAll", async () => {
-    await db.query(query6);
+    await pgPreparedDb.query(query6);
   });
 
   const query7 = {
@@ -194,7 +211,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
 
   bench("Pg Driver Suppliers: getInfo", async () => {
     for await (const id of supplierIds) {
-      await db.query(query7, [id]);
+      await pgPreparedDb.query(query7, [id]);
     }
   });
 
@@ -204,7 +221,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
   };
 
   bench("Pg Driver Products: getAll", async () => {
-    await db.query(query8);
+    await pgPreparedDb.query(query8);
   });
 
   const query9 = {
@@ -215,7 +232,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
 
   bench("Pg Driver Products: getInfo", async () => {
     for await (const id of productIds) {
-      await db.query(query9, [id]);
+      await pgPreparedDb.query(query9, [id]);
     }
   });
 
@@ -226,7 +243,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
 
   bench("Pg Driver Products: search", async () => {
     for await (const it of productSearches) {
-      await db.query(query10, [`%${it}%`]);
+      await pgPreparedDb.query(query10, [`%${it}%`]);
     }
   });
 
@@ -238,7 +255,7 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
   };
 
   bench("Pg Driver Orders: getAll", async () => {
-    await db.query(query11);
+    await pgPreparedDb.query(query11);
   });
 
   const query12 = {
@@ -251,100 +268,101 @@ group({ name: "Pg Driver Prepared", summary: false }, () => {
 
   bench("Pg Driver Orders: getInfo", async () => {
     for await (const id of orderIds) {
-      await db.query(query12, [id]);
+      await pgPreparedDb.query(query12, [id]);
     }
   });
 });
 
 group({ name: "Pg Driver", summary: false }, () => {
   bench("Pg Driver Customers: getAll", async () => {
-    await db.query('select * from "customers"');
+    await pgDb.query('select * from "customers"');
   });
   bench("Pg Driver Customers: getInfo", async () => {
     for await (const id of customerIds) {
-      await db.query('select * from "customers" where "customers"."id" = $1', [
-        id,
-      ]);
+      await pgDb.query(
+        'select * from "customers" where "customers"."id" = $1',
+        [id],
+      );
     }
   });
   bench("Pg Driver Customers: search", async () => {
     for await (const it of customerSearches) {
-      await db.query(
+      await pgDb.query(
         'select * from "customers" where "customers"."company_name" ilike $1',
-        [`%${it}%`]
+        [`%${it}%`],
       );
     }
   });
 
   bench("Pg Driver Employees: getAll", async () => {
-    await db.query('select * from "employees"');
+    await pgDb.query('select * from "employees"');
   });
 
   bench("Pg Driver Employees: getInfo", async () => {
     for await (const id of employeeIds) {
-      await db.query(
+      await pgDb.query(
         `select "e1".*, "e2"."last_name" as "reports_lname", "e2"."first_name" as "reports_fname"
                 from "employees" as "e1" left join "employees" as "e2" on "e2"."id" = "e1"."recipient_id" where "e1"."id" = $1`,
-        [id]
+        [id],
       );
     }
   });
 
   bench("Pg Driver Suppliers: getAll", async () => {
-    await db.query('select * from "suppliers"');
+    await pgDb.query('select * from "suppliers"');
   });
 
   bench("Pg Driver Suppliers: getInfo", async () => {
     for await (const id of supplierIds) {
-      await db.query('select * from "suppliers" where "suppliers"."id" = $1', [
-        id,
-      ]);
+      await pgDb.query(
+        'select * from "suppliers" where "suppliers"."id" = $1',
+        [id],
+      );
     }
   });
 
   bench("Pg Driver Products: getAll", async () => {
-    await db.query('select * from "products"');
+    await pgDb.query('select * from "products"');
   });
 
   bench("Pg Driver Products: getInfo", async () => {
     for await (const id of productIds) {
-      await db.query(
+      await pgDb.query(
         `select "products".*, "suppliers".*
                 from "products" left join "suppliers" on "products"."supplier_id" = "suppliers"."id" where "products"."id" = $1`,
-        [id]
+        [id],
       );
     }
   });
   bench("Pg Driver Products: search", async () => {
     for await (const it of productSearches) {
-      await db.query(
+      await pgDb.query(
         'select * from "products" where "products"."name" ilike $1',
-        [`%${it}%`]
+        [`%${it}%`],
       );
     }
   });
 
   bench("Pg Driver Orders: getAll", async () => {
-    await db.query(`select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
+    await pgDb.query(`select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
             sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
             from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" group by "o"."id" order by "o"."id" asc`);
   });
 
   bench("Pg Driver Orders: getInfo", async () => {
     for await (const id of orderIds) {
-      await db.query(
+      await pgDb.query(
         `SELECT * FROM "orders" AS o
               LEFT JOIN "order_details" AS od ON o.id = od.order_id
               LEFT JOIN "products" AS p ON od.product_id = p.id
               WHERE o.id = $1`,
-        [id]
+        [id],
       );
     }
   });
 });
 
 const main = async () => {
-  drizzle = await connector.connect();
   await run();
 
   // console.log( await drizzle.select(orders)
@@ -383,4 +401,4 @@ const main = async () => {
   // // drizzle.buildQuery(query)
 };
 
-main();
+void main();

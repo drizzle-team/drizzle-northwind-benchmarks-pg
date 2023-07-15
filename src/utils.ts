@@ -1,9 +1,8 @@
 import Docker from "dockerode";
-import { v4 as uuid } from "uuid";
-import getPort from "get-port";
-import pkg from "pg";
-import path from "node:path";
 import fs from "fs";
+import path from "node:path";
+import pkg from "pg";
+import { v4 as uuid } from "uuid";
 
 export interface DockerDBs {
   pgContainer: Docker.Container;
@@ -22,15 +21,17 @@ export const ports = {
   prismaOrm: 55008,
 };
 
-export async function createDockerDBs(ports: {
-  [key: string]: number;
-}): Promise<DockerDBs[]> {
+export async function createDockerDBs(
+  ports: Record<string, number>,
+): Promise<DockerDBs[]> {
   const docker = new Docker();
-  const image = "postgres";
-  const pullStream = await docker.pull(image);
-	await new Promise((resolve, reject) =>
-		docker.modem.followProgress(pullStream, (err) => (err ? reject(err) : resolve(err)))
-	);
+  const image = "postgres:alpine";
+  const pullStream = (await docker.pull(image)) as NodeJS.ReadableStream;
+  await new Promise((resolve, reject) => {
+    docker.modem.followProgress(pullStream, (err) => {
+      err != null ? reject(err) : resolve(err);
+    });
+  });
   const dockerDBs: DockerDBs[] = [];
   await Promise.all(
     Object.values(ports).map(async (port) => {
@@ -51,7 +52,7 @@ export async function createDockerDBs(ports: {
       });
       await pgContainer.start();
       dockerDBs.push({ pgContainer, port });
-    })
+    }),
   );
 
   await addDataToDB(dockerDBs);
@@ -59,11 +60,11 @@ export async function createDockerDBs(ports: {
 }
 
 export const addDataToDB = async (dockerDBs: DockerDBs[]) => {
-  const sql_script = fs.readFileSync(path.resolve("data/init-db.sql"), "utf-8");
+  const sqlScript = fs.readFileSync(path.resolve("data/init-db.sql"), "utf8");
   await Promise.all(
     dockerDBs.map(async (dockerDb) => {
       const connectionString = `postgres://postgres:postgres@localhost:${dockerDb.port}/postgres`;
-      let sleep = 250;
+      const sleep = 250;
       let timeLeft = 5000;
       let connected = false;
       let lastError: unknown | undefined;
@@ -83,8 +84,8 @@ export const addDataToDB = async (dockerDBs: DockerDBs[]) => {
         console.error("Cannot connect to Postgres");
         throw lastError;
       }
-      await pool.query(sql_script);
-    })
+      await pool.query(sqlScript);
+    }),
   );
 };
 
@@ -92,6 +93,6 @@ export const deleteDockerDBs = async (dockerDBs: DockerDBs[]) => {
   await Promise.all(
     dockerDBs.map(async (dockerDB) => {
       await dockerDB.pgContainer.stop().catch(console.error);
-    })
+    }),
   );
 };

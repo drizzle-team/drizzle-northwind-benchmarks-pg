@@ -40,11 +40,13 @@ export class Order {
 
   @Property({ fieldName: 'customer_id' })
     customerId: string;
+
   @ManyToOne(() => Customer)
     customer: Customer;
 
   @Property({ fieldName: 'employee_id' })
     employeeId: string;
+
   @ManyToOne(() => Employee)
     employee: Employee;
 

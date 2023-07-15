@@ -49,6 +49,7 @@ export class Employee {
 
   @Column({ name: 'recipient_id', type: 'varchar', nullable: true })
     recipientId: string | null;
+
   @ManyToOne(() => Employee, (employee) => employee.recipient)
   @JoinColumn({ name: 'recipient_id' })
     recipient: Employee;

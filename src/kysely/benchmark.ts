@@ -1,18 +1,19 @@
-import { run, bench } from "mitata";
-import { Kysely, sql, PostgresDialect } from "kysely";
-import { Database } from "./db";
+import { Kysely, PostgresDialect, sql } from "kysely";
+import { bench, run } from "mitata";
 import {
   customerIds,
+  customerSearches,
   employeeIds,
   orderIds,
   productIds,
   productSearches,
-  customerSearches,
   supplierIds,
 } from "../common/meta";
+import { type Database } from "./db";
 
-import pkg from "pg";
+import { ports } from "@/utils";
 import dotenv from "dotenv";
+import pkg from "pg";
 
 const { Pool } = pkg;
 dotenv.config();
@@ -22,7 +23,7 @@ const db = new Kysely<Database>({
   dialect: new PostgresDialect({
     pool: new Pool({
       host: DB_HOST,
-      port: +DB_PORT!,
+      port: +(DB_PORT ?? ports.kysely),
       user: DB_USER,
       password: DB_PASSWORD,
       database: DB_NAME,
@@ -83,7 +84,7 @@ bench("Kysely ORM Employees: getInfo", async () => {
           ])
           .as("e2"),
         "e2.e2_id",
-        "e1.recipient_id"
+        "e1.recipient_id",
       )
       .execute();
   }
@@ -128,7 +129,7 @@ bench("Kysely ORM Products: getInfo", async () => {
           ])
           .as("s1"),
         "s1.s_id",
-        "products.supplier_id"
+        "products.supplier_id",
       )
       .execute();
   }
@@ -202,7 +203,7 @@ bench("Kysely ORM Orders: getInfo", async () => {
           ])
           .as("od"),
         "od.order_id",
-        "orders.id"
+        "orders.id",
       )
       .leftJoin(
         db
@@ -220,7 +221,7 @@ bench("Kysely ORM Orders: getInfo", async () => {
           ])
           .as("p"),
         "p.p_id",
-        "od.product_id"
+        "od.product_id",
       )
       .execute();
   }
@@ -229,4 +230,4 @@ bench("Kysely ORM Orders: getInfo", async () => {
 const main = async () => {
   await run();
 };
-main();
+void main();
