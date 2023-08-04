@@ -15,6 +15,7 @@ import {
   orders,
   details,
 } from "./schema";
+import * as schema from "./schema";
 import {
   customerIds,
   employeeIds,
@@ -36,7 +37,7 @@ dotenv.config();
 const port = 54321;
 const dburl = `postgres://postgres:postgres@localhost:${port}/postgres`;
 const pool = new Pool({ connectionString: dburl });
-const drizzle = drzl(pool);
+const drizzle = drzl(pool, { schema });
 
 async function createDockerDB(desiredPort: number) {
   const docker = new Docker();
@@ -66,27 +67,27 @@ async function createDockerDB(desiredPort: number) {
 
   await pgContainer.start();
 }
-const p1 = drizzle.select().from(customers).prepare("p1");
+
+const p1 = drizzle.query.customers.findMany().prepare("p1");
 bench("Customers: getAll", async () => {
   await p1.execute();
 });
 
-const p2 = drizzle
-  .select()
-  .from(customers)
-  .where(eq(customers.id, placeholder("id")))
+const p2 = drizzle.query.customers
+  .findFirst({
+    where: eq(customers.id, placeholder("id")),
+  })
   .prepare("p2");
-
 bench("Customers: get by id", async () => {
   for (const id of customerIds) {
     await p2.execute({ id: id });
   }
 });
 
-const p3 = drizzle
-  .select()
-  .from(customers)
-  .where(ilike(customers.companyName, placeholder("term")))
+const p3 = drizzle.query.customers
+  .findMany({
+    where: ilike(customers.companyName, placeholder("term")),
+  })
   .prepare("p3");
 bench("Customers: search", async () => {
   for (const it of customerSearches) {
@@ -94,17 +95,19 @@ bench("Customers: search", async () => {
   }
 });
 
-const p4 = drizzle.select().from(employees).prepare("p4");
+const p4 = drizzle.query.employees.findMany().prepare("p4");
 bench("Employees: getAll", async () => {
   await p4.execute();
 });
 
 const e2 = alias(employees, "recipient");
-const p5 = drizzle
-  .select()
-  .from(employees)
-  .leftJoin(e2, eq(e2.id, employees.recipientId))
-  .where(eq(employees.id, placeholder("id")))
+const p5 = drizzle.query.employees
+  .findMany({
+    with: {
+      recipient: true,
+    },
+    where: eq(employees.id, placeholder("id")),
+  })
   .prepare("p5");
 
 bench("Employees: get by id", async () => {
@@ -115,15 +118,15 @@ bench("Employees: get by id", async () => {
   }
 });
 
-const p6 = drizzle.select().from(suppliers).prepare("p6");
+const p6 = drizzle.query.suppliers.findMany().prepare("p6");
 bench("Suppliers: getAll", async () => {
   await p6.execute();
 });
 
-const p7 = drizzle
-  .select()
-  .from(suppliers)
-  .where(eq(suppliers.id, placeholder("id")))
+const p7 = drizzle.query.suppliers
+  .findFirst({
+    where: eq(suppliers.id, placeholder("id")),
+  })
   .prepare("p7");
 bench("Suppliers: get by id", async () => {
   for (const id of supplierIds) {
@@ -131,16 +134,18 @@ bench("Suppliers: get by id", async () => {
   }
 });
 
-const p8 = drizzle.select().from(products).prepare("p8");
+const p8 = drizzle.query.products.findMany().prepare("p8");
 bench("Products: getAll", async () => {
   await p8.execute();
 });
 
-const p9 = drizzle
-  .select()
-  .from(products)
-  .leftJoin(suppliers, eq(products.supplierId, suppliers.id))
-  .where(eq(products.id, placeholder("id")))
+const p9 = drizzle.query.products
+  .findMany({
+    where: eq(products.id, placeholder("id")),
+    with: {
+      supplier: true,
+    },
+  })
   .prepare("p9");
 bench("Products: get by id", async () => {
   for (const id of productIds) {
@@ -148,10 +153,10 @@ bench("Products: get by id", async () => {
   }
 });
 
-const p10 = drizzle
-  .select()
-  .from(products)
-  .where(ilike(products.name, placeholder("term")))
+const p10 = drizzle.query.products
+  .findMany({
+    where: ilike(products.name, placeholder("term")),
+  })
   .prepare("p10");
 bench("Products: search", async () => {
   for (const it of productSearches) {
@@ -206,12 +211,17 @@ bench("Orders: get by id with details", async () => {
   }
 });
 
-const p13 = drizzle
-  .select()
-  .from(orders)
-  .leftJoin(details, eq(orders.id, details.orderId))
-  .leftJoin(products, eq(details.productId, products.id))
-  .where(eq(orders.id, placeholder("id")))
+const p13 = drizzle.query.orders
+  .findMany({
+    with: {
+      details: {
+        with: {
+          product: true,
+        },
+      },
+    },
+    where: eq(orders.id, placeholder("id")),
+  })
   .prepare("p13");
 
 bench("Orders: get by id", async () => {

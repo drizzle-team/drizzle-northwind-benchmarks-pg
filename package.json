@@ -18,7 +18,7 @@
     "@mikro-orm/reflection": "^5.7.14",
     "@prisma/client": "^4.6.1",
     "dotenv": "^16.0.3",
-    "drizzle-orm": "^0.27.2",
+    "drizzle-orm": "0.27.3-0ea6f8c",
     "get-port": "^6.1.2",
     "knex": "^2.5.1",
     "kysely": "^0.26.1",

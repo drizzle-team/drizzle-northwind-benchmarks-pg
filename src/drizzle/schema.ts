@@ -1,3 +1,4 @@
+import { relations } from "drizzle-orm";
 import {
   pgTable,
   varchar,
@@ -112,3 +113,44 @@ export const details = pgTable("order_details", {
     .notNull()
     .references(() => products.id, { onDelete: "cascade" }),
 });
+
+export const ordersRelations = relations(orders, (r) => {
+  return {
+    details: r.many(details),
+    products: r.many(products)
+  };
+});
+
+
+export const detailsRelations = relations(details, (r) => {
+  return {
+    order: r.one(orders, {
+      fields: [details.orderId],
+      references: [orders.id],
+    }),
+    product: r.one(products, {
+      fields: [details.productId],
+      references: [products.id]
+    })
+  };
+});
+
+export const employeesRelations = relations(employees, (r) => {
+  return {
+    recipient: r.one(employees, {
+      fields: [employees.recipientId],
+      references: [employees.id],
+    }),
+  };
+});
+
+export const productsRelations = relations(products, (r)=>{
+  return {
+    supplier: r.one(suppliers, {
+      fields: [products.supplierId],
+      references: [suppliers.id]
+    }),
+    order: r.one(orders, )
+  }
+})
+
