@@ -1,16 +1,18 @@
 import { run, bench, group } from "mitata";
 import { eq, ilike, placeholder } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import { drizzle as drzl } from "drizzle-orm/node-postgres";
+// import { drizzle as drzl } from "drizzle-orm/node-postgres";
+import { drizzle as drzl } from "drizzle-orm/postgres-js";
 import { alias } from "drizzle-orm/pg-core";
 import pkg from "pg";
+import postgres from 'postgres'
 import knex from "knex";
 import dotenv from "dotenv";
 import { Kysely, sql as k_sql, PostgresDialect } from "kysely";
 import { DataSource, ILike } from "typeorm";
 import { MikroORM } from "@mikro-orm/core";
 import { TsMorphMetadataProvider } from "@mikro-orm/reflection";
-import { PostgreSqlDriver, SqlEntityManager } from "@mikro-orm/postgresql";
+import { PostgreSqlDriver } from "@mikro-orm/postgresql";
 import * as Prisma from "@prisma/client";
 
 import { Database } from "@/kysely/db";
@@ -59,9 +61,9 @@ console.log(port);
 
 const dockersDbs = await createDockerDBs(ports);
 
-const { Pool } = pkg;
+// const { Pool } = pkg;
 // pg connect
-const pg = new Pool({
+const pg = new pkg.Pool({
   host: DB_HOST,
   port: Number(DB_PORT || ports.pg),
   user: DB_USER,
@@ -70,7 +72,7 @@ const pg = new Pool({
 });
 
 // pgPrepared connect
-const pgPrepared = new Pool({
+const pgPrepared = new pkg.Pool({
   host: DB_HOST,
   port: Number(DB_PORT || ports.pgPrepared),
   user: DB_USER,
@@ -79,21 +81,18 @@ const pgPrepared = new Pool({
 });
 
 // drizzle connect
-const drizzlePool = new Pool({
-  connectionString:
+const drizzlePool = postgres(
     process.env.DATABASE_URL ??
     `postgres://postgres:postgres@localhost:${ports.drizzle}/postgres`,
-});
-await drizzlePool.connect();
+);
 const drizzle = drzl(drizzlePool);
 
 // drizzlePrepared  connect
-const drizzlePreparedPool = new Pool({
-  connectionString:
+const drizzlePreparedPool = postgres(
     process.env.DATABASE_URL ??
     `postgres://postgres:postgres@localhost:${ports.drizzlePrepared}/postgres`,
-});
-await drizzlePreparedPool.connect();
+);
+// await drizzlePreparedPool.connect();
 const drizzlePrepared = drzl(drizzlePreparedPool);
 
 // mikro connect
@@ -125,7 +124,7 @@ const knexDb = knex({
 // kysely connect
 const kysely = new Kysely<Database>({
   dialect: new PostgresDialect({
-    pool: new Pool({
+    pool: new pkg.Pool({
       host: DB_HOST,
       port: Number(DB_PORT || ports.kysely),
       user: DB_USER,
