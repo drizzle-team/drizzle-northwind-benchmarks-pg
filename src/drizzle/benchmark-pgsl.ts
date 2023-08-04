@@ -37,7 +37,7 @@ let drizzle: PostgresJsDatabase;
 async function createDockerDB(): Promise<string> {
   const docker = new Docker();
   const port = await getPort({ port: 5432 });
-  const image = "postgres:14";
+  const image = "postgres";
 
   await docker.pull(image);
 
