@@ -17,7 +17,6 @@
     "@mikro-orm/postgresql": "^5.7.14",
     "@mikro-orm/reflection": "^5.7.14",
     "@prisma/client": "^4.6.1",
-    "dockerode": "^3.3.4",
     "dotenv": "^16.0.3",
     "drizzle-orm": "^0.27.2",
     "get-port": "^6.1.2",
@@ -26,13 +25,15 @@
     "mitata": "^0.1.6",
     "pg": "^8.11.2",
     "prisma": "^5.1.1",
-    "tsx": "^3.12.1",
     "typeorm": "^0.3.17",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "@balena/dockerignore": "^1.0.2",
     "@types/dockerode": "^3.3.14",
     "@types/pg": "^8.10.2",
-    "@types/uuid": "^9.0.0"
+    "@types/uuid": "^9.0.0",
+    "dockerode": "^3.3.4",
+    "tsx": "^3.12.2"
   }
 }
