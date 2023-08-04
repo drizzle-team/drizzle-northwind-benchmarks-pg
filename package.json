@@ -13,27 +13,26 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@mikro-orm/core": "^5.5.3",
-    "@mikro-orm/postgresql": "^5.5.3",
-    "@mikro-orm/reflection": "^5.5.3",
+    "@mikro-orm/core": "^5.7.14",
+    "@mikro-orm/postgresql": "^5.7.14",
+    "@mikro-orm/reflection": "^5.7.14",
     "@prisma/client": "^4.6.1",
     "dockerode": "^3.3.4",
     "dotenv": "^16.0.3",
-    "drizzle-orm": "^0.13.0",
-    "drizzle-orm-pg": "^0.13.2",
+    "drizzle-orm": "^0.27.2",
     "get-port": "^6.1.2",
-    "knex": "^2.3.0",
-    "kysely": "^0.22.0",
+    "knex": "^2.5.1",
+    "kysely": "^0.26.1",
     "mitata": "^0.1.6",
-    "pg": "^8.8.0",
-    "prisma": "^4.6.1",
+    "pg": "^8.11.2",
+    "prisma": "^5.1.1",
     "tsx": "^3.12.1",
-    "typeorm": "^0.3.11",
+    "typeorm": "^0.3.17",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.14",
-    "@types/pg": "^8.6.5",
+    "@types/pg": "^8.10.2",
     "@types/uuid": "^9.0.0"
   }
 }

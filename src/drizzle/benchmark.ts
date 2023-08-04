@@ -1,10 +1,12 @@
 import { run, bench } from "mitata";
-import Docker from 'dockerode';
-import { v4 as uuid } from 'uuid';
-import getPort from 'get-port';
-import { asc, eq, ilike } from "drizzle-orm/expressions";
+import Docker from "dockerode";
+import { v4 as uuid } from "uuid";
+import getPort from "get-port";
+import { asc, eq, ilike } from "drizzle-orm";
 import dotenv from "dotenv";
 import { sql } from "drizzle-orm";
+import * as fs from "fs";
+import * as path from "path";
 import {
   employees,
   customers,
@@ -22,130 +24,116 @@ import {
   productSearches,
   supplierIds,
 } from "../common/meta";
-import { PgConnector, PgDatabase, alias } from "drizzle-orm-pg";
-import { Pool } from "pg";
+import { alias } from "drizzle-orm/pg-core";
+import { NodePgDatabase, drizzle as drzl } from "drizzle-orm/node-postgres";
+import * as pg from "pg";
+const { Pool } = pg.default;
 
 dotenv.config();
 // const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // const connector = new PgConnector(pool);
-let drizzle: PgDatabase;
+
+let drizzle: NodePgDatabase;
 
 async function createDockerDB(): Promise<string> {
-	const docker = new Docker()
-	const port = await getPort({ port: 5432 });
-	const image = 'postgres:14';
+  const docker = new Docker();
+  const port = await getPort({ port: 5432 });
+  const image = "postgres:14";
 
-	await docker.pull(image);
+  await docker.pull(image);
 
-	const pgContainer = await docker.createContainer({
-		Image: image,
-		Env: ['POSTGRES_PASSWORD=postgres', 'POSTGRES_USER=postgres', 'POSTGRES_DB=postgres'],
-		name: `benchmarks-tests-${uuid()}`,
-		HostConfig: {
-			AutoRemove: true,
-			PortBindings: {
-				'5432/tcp': [{ HostPort: `${port}` }],
-			},
-		},
-	})
+  const pgContainer = await docker.createContainer({
+    Image: image,
+    Env: [
+      "POSTGRES_PASSWORD=postgres",
+      "POSTGRES_USER=postgres",
+      "POSTGRES_DB=postgres",
+    ],
+    name: `benchmarks-tests-${uuid()}`,
+    HostConfig: {
+      AutoRemove: true,
+      PortBindings: {
+        "5432/tcp": [{ HostPort: `${port}` }],
+      },
+    },
+  });
 
-	await pgContainer.start();
+  await pgContainer.start();
 
-	return `postgres://postgres:postgres@localhost:${port}/postgres`;
+  return `postgres://postgres:postgres@localhost:${port}/postgres`;
 }
 
-const getConection = async () => {
-	const connectionString = process.env['PG_CONNECTION_STRING'] ?? await createDockerDB();
-
-	let sleep = 250;
-	let timeLeft = 5000;
-	let connected = false;
-	let lastError: unknown | undefined;
-  const pool = new Pool({connectionString});
-	do {
-		try {
-			await pool.connect();
-			connected = true;
-			break;
-		} catch (e) {
-			lastError = e;
-			await new Promise((resolve) => setTimeout(resolve, sleep));
-			timeLeft -= sleep;
-		}
-	} while (timeLeft > 0);
-	if (!connected) {
-		console.error('Cannot connect to Postgres');
-		throw lastError;
-	}
-  drizzle = await new PgConnector(pool).connect();
-}
-
-bench("Drizzle-ORM Customers: getAll", async () => {
-  await drizzle.select(customers);
+bench("Customers: getAll", async () => {
+  await drizzle.select().from(customers);
 });
 
-bench("Drizzle-ORM Customers: getInfo", async () => {
+bench("Customers: getInfo", async () => {
   for (const id of customerIds) {
-    await drizzle.select(customers).where(eq(customers.id, id));
+    await drizzle.select().from(customers).where(eq(customers.id, id));
   }
 });
 
-bench("Drizzle-ORM Customers: search", async () => {
+bench("Customers: search", async () => {
   for (const it of customerSearches) {
     await drizzle
-      .select(customers)
+      .select()
+      .from(customers)
       .where(ilike(customers.companyName, `%${it}%`));
   }
 });
 
-bench("Drizzle-ORM Employees: getAll", async () => {
-  await drizzle.select(employees);
+bench("Employees: getAll", async () => {
+  await drizzle.select().from(employees);
 });
 
-bench("Drizzle-ORM Employees: getInfo", async () => {
+bench("Employees: getInfo", async () => {
   const e2 = alias(employees, "recipient");
 
   for (const id of employeeIds) {
     await drizzle
-      .select(employees)
+      .select()
+      .from(employees)
       .leftJoin(e2, eq(e2.id, employees.recipientId))
       .where(eq(employees.id, id));
   }
 });
 
-bench("Drizzle-ORM Suppliers: getAll", async () => {
-  await drizzle.select(suppliers);
+bench("Suppliers: getAll", async () => {
+  await drizzle.select().from(suppliers);
 });
 
-bench("Drizzle-ORM Suppliers: getInfo", async () => {
+bench("Suppliers: getInfo", async () => {
   for (const id of supplierIds) {
-    await drizzle.select(suppliers).where(eq(suppliers.id, id));
+    await drizzle.select().from(suppliers).where(eq(suppliers.id, id));
   }
 });
 
-bench("Drizzle-ORM Products: getAll", async () => {
-  await drizzle.select(products);
+bench("Products: getAll", async () => {
+  await drizzle.select().from(products);
 });
 
-bench("Drizzle-ORM Products: getInfo", async () => {
+bench("Products: getInfo", async () => {
   for (const id of productIds) {
     await drizzle
-      .select(products)
+      .select()
+      .from(products)
       .leftJoin(suppliers, eq(products.supplierId, suppliers.id))
       .where(eq(products.id, id));
   }
 });
 
-bench("Drizzle-ORM Products: search", async () => {
+bench("Products: search", async () => {
   for (const it of productSearches) {
-    await drizzle.select(products).where(ilike(products.name, `%${it}%`));
+    await drizzle
+      .select()
+      .from(products)
+      .where(ilike(products.name, `%${it}%`));
   }
 });
 
-bench("Drizzle-ORM Orders: getAll", async () => {
+bench("Orders: getAll", async () => {
   await drizzle
-    .select(orders)
-    .fields({
+    .select({
       id: orders.id,
       shippedDate: orders.shippedDate,
       shipName: orders.shipName,
@@ -156,16 +144,16 @@ bench("Drizzle-ORM Orders: getAll", async () => {
       totalPrice:
         sql`sum(${details.quantity} * ${details.unitPrice})`.as<number>(),
     })
+    .from(orders)
     .leftJoin(details, eq(orders.id, details.orderId))
     .groupBy(orders.id)
     .orderBy(asc(orders.id));
 });
 
-bench("Drizzle-ORM Orders: getById", async () => {
+bench("Orders: getById", async () => {
   for (const id of orderIds) {
     await drizzle
-      .select(orders)
-      .fields({
+      .select({
         id: orders.id,
         shippedDate: orders.shippedDate,
         shipName: orders.shipName,
@@ -176,6 +164,7 @@ bench("Drizzle-ORM Orders: getById", async () => {
         totalPrice:
           sql`sum(${details.quantity} * ${details.unitPrice})`.as<number>(),
       })
+      .from(orders)
       .leftJoin(details, eq(orders.id, details.orderId))
       .where(eq(orders.id, id))
       .groupBy(orders.id)
@@ -183,10 +172,11 @@ bench("Drizzle-ORM Orders: getById", async () => {
   }
 });
 
-bench("Drizzle-ORM Orders: getInfo", async () => {
+bench("Orders: getInfo", async () => {
   for (const id of orderIds) {
     drizzle
-      .select(orders)
+      .select()
+      .from(orders)
       .leftJoin(details, eq(orders.id, details.orderId))
       .leftJoin(products, eq(details.productId, products.id))
       .where(eq(orders.id, id));
@@ -194,7 +184,34 @@ bench("Drizzle-ORM Orders: getInfo", async () => {
 });
 
 const main = async () => {
-  await getConection();
+  const connectionString =
+    process.env["PG_CONNECTION_STRING"] ?? (await createDockerDB());
+
+  let sleep = 250;
+  let timeLeft = 5000;
+  let connected = false;
+  let lastError: unknown | undefined;
+  const pool = new Pool({ connectionString });
+  do {
+    try {
+      await pool.connect();
+      connected = true;
+      break;
+    } catch (e) {
+      lastError = e;
+      await new Promise((resolve) => setTimeout(resolve, sleep));
+      timeLeft -= sleep;
+    }
+  } while (timeLeft > 0);
+  if (!connected) {
+    console.error("Cannot connect to Postgres");
+    throw lastError;
+  }
+  const sql_script = fs.readFileSync(path.resolve("data/init-db.sql"), "utf-8");
+  await pool.query(sql_script);
+
+  drizzle = drzl(pool);
+
   await run();
 };
 
