@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { drizzle as drzl } from "drizzle-orm/postgres-js";
 import { alias } from "drizzle-orm/pg-core";
 import pkg from "pg";
-import postgres from 'postgres'
+import postgres from "postgres";
 import knex from "knex";
 import dotenv from "dotenv";
 import { Kysely, sql as k_sql, PostgresDialect } from "kysely";
@@ -80,17 +80,25 @@ const pgPrepared = new pkg.Pool({
   database: DB_NAME,
 });
 
+const pgjs = postgres({
+  host: DB_HOST,
+  port: Number(DB_PORT || ports.postgresjs),
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: DB_NAME,
+});
+
 // drizzle connect
 const drizzlePool = postgres(
-    process.env.DATABASE_URL ??
-    `postgres://postgres:postgres@localhost:${ports.drizzle}/postgres`,
+  process.env.DATABASE_URL ??
+    `postgres://postgres:postgres@localhost:${ports.drizzle}/postgres`
 );
 const drizzle = drzl(drizzlePool);
 
 // drizzlePrepared  connect
 const drizzlePreparedPool = postgres(
-    process.env.DATABASE_URL ??
-    `postgres://postgres:postgres@localhost:${ports.drizzlePrepared}/postgres`,
+  process.env.DATABASE_URL ??
+    `postgres://postgres:postgres@localhost:${ports.drizzlePrepared}/postgres`
 );
 // await drizzlePreparedPool.connect();
 const drizzlePrepared = drzl(drizzlePreparedPool);
@@ -167,6 +175,10 @@ group("select * from customer", () => {
     await pgPrepared.query(query);
   });
 
+  bench("postgresjs", async () => {
+    await pgjs`select * from "customers"`;
+  });
+
   bench("drizzle", async () => {
     await drizzle.select().from(customers);
   });
@@ -219,6 +231,12 @@ group("select * from customer where id = ?", () => {
   bench("pg:p", async () => {
     for (const id of customerIds) {
       await pgPrepared.query(query, [id]);
+    }
+  });
+
+  bench("postgresjs", async () => {
+    for (const id of customerIds) {
+      await pgjs`select * from "customers" where "customers"."id" = ${id}`;
     }
   });
 
@@ -302,6 +320,12 @@ group("select * from customer where company_name ilike ?", () => {
   bench("pg:p", async () => {
     for (const it of customerSearches) {
       await pgPrepared.query(query, [`%${it}%`]);
+    }
+  });
+
+  bench("postgresjs", async () => {
+    for (const id of customerIds) {
+      await pgjs`select * from "customers" where "customers"."company_name" ilike ${id}`;
     }
   });
 
@@ -1911,7 +1935,7 @@ const main = async () => {
   try {
     await run();
   } catch (e) {
-    console.error(e)
+    console.error(e);
   }
 
   await deleteDockerDBs(dockersDbs);

@@ -20,6 +20,7 @@ export const ports = {
   typeOrm: 55006,
   mikroOrm: 55007,
   prismaOrm: 55008,
+  postgresjs: 55009,
 };
 
 export async function createDockerDBs(ports: {

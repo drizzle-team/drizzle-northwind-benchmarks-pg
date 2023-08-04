@@ -38,7 +38,6 @@ let pgContainer: Docker.Container;
 async function createDockerDB(): Promise<string> {
 	const docker = new Docker()
 	const port = await getPort({ port: 5432 });
-  console.log(port);
 	const image = 'postgres';
 
 	await docker.pull(image);
@@ -87,17 +86,17 @@ const getConection = async () => {
 }
 
 
-bench("Pg Driver Customers: getAll", async () => {
+bench("Customers: getAll", async () => {
   await pg.query('select * from "customers"');
 });
-bench("Pg Driver Customers: getInfo", async () => {
+bench("Customers: getInfo", async () => {
   for await (const id of customerIds) {
     await pg.query('select * from "customers" where "customers"."id" = $1', [
       id,
     ]);
   }
 });
-bench("Pg Driver Customers: search", async () => {
+bench("Customers: search", async () => {
   for await (const it of customerSearches) {
     await pg.query(
       'select * from "customers" where "customers"."company_name" ilike $1',
@@ -106,11 +105,11 @@ bench("Pg Driver Customers: search", async () => {
   }
 });
 
-bench("Pg Driver Employees: getAll", async () => {
+bench("Employees: getAll", async () => {
     await pg.query('select * from "employees"');
 });
 
-bench("Pg Driver Employees: getInfo", async () => {
+bench("Employees: getInfo", async () => {
   for await (const id of employeeIds) {
     await pg.query(
       `select "e1".*, "e2"."last_name" as "reports_lname", "e2"."first_name" as "reports_fname"
@@ -120,21 +119,21 @@ bench("Pg Driver Employees: getInfo", async () => {
   }
 });
 
-bench("Pg Driver Suppliers: getAll", async () => {
+bench("Suppliers: getAll", async () => {
       await pg.query('select * from "suppliers"');
   });
 
-bench("Pg Driver Suppliers: getInfo", async () => {
+bench("Suppliers: getInfo", async () => {
   for await (const id of supplierIds) {
     await pg.query('select * from "suppliers" where "suppliers"."id" = $1', [id]);
   }
 });
 
-bench("Pg Driver Products: getAll", async () => {
+bench("Products: getAll", async () => {
     await pg.query('select * from "products"');
 });
 
-bench("Pg Driver Products: getInfo", async () => {
+bench("Products: getInfo", async () => {
   for await (const id of productIds) {
     await pg.query(
       `select "products".*, "suppliers".*
@@ -143,7 +142,7 @@ bench("Pg Driver Products: getInfo", async () => {
     );
   }
 });
-bench("Pg Driver Products: search", async () => {
+bench("Products: search", async () => {
   for await (const it of productSearches) {
     await pg.query(
       'select * from "products" where "products"."name" ilike $1',
@@ -152,13 +151,13 @@ bench("Pg Driver Products: search", async () => {
   }
 });
 
-bench("Pg Driver Orders: getAll", async () => {
+bench("Orders: getAll", async () => {
       await pg.query(`select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
         sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
         from "orders" as "o" left join "order_details" as "od" on "od"."order_id" = "o"."id" group by "o"."id" order by "o"."id" asc`);
   });
 
-bench("Pg Driver Orders: getById", async () => {
+bench("Orders: getById", async () => {
   for (const id of orderIds) {
     await pg.query(`select "id", "shipped_date", "ship_name", "ship_city", "ship_country", count("product_id") as "products",
       sum("quantity") as "quantity", sum("quantity" * "unit_price") as "total_price"
@@ -168,7 +167,7 @@ bench("Pg Driver Orders: getById", async () => {
   }
 });
 
-bench("Pg Driver Orders: getInfo", async () => {
+bench("Orders: getInfo", async () => {
   for await (const id of orderIds) {
     await pg.query(
       `SELECT * FROM "orders" AS o
@@ -185,7 +184,6 @@ const main = async () => {
   const sql_script = fs.readFileSync(path.resolve("data/init-db.sql"), 'utf-8')
   await pg.query(sql_script);
   await run();
-  await pgContainer.stop().catch(console.error)
   process.exit(1)
 };
 

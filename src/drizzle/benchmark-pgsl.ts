@@ -25,15 +25,14 @@ import {
   supplierIds,
 } from "../common/meta";
 import { alias } from "drizzle-orm/pg-core";
-import { NodePgDatabase, drizzle as drzl } from "drizzle-orm/node-postgres";
-import * as pg from "pg";
-const { Pool } = pg.default;
+import postgres from "postgres";
+import { PostgresJsDatabase, drizzle as drzl } from "drizzle-orm/postgres-js";
 
 dotenv.config();
 // const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // const connector = new PgConnector(pool);
 
-let drizzle: NodePgDatabase;
+let drizzle: PostgresJsDatabase;
 
 async function createDockerDB(): Promise<string> {
   const docker = new Docker();
@@ -174,7 +173,7 @@ bench("Orders: getById", async () => {
 
 bench("Orders: getInfo", async () => {
   for (const id of orderIds) {
-    drizzle
+    await drizzle
       .select()
       .from(orders)
       .leftJoin(details, eq(orders.id, details.orderId))
@@ -191,10 +190,12 @@ const main = async () => {
   let timeLeft = 5000;
   let connected = false;
   let lastError: unknown | undefined;
-  const pool = new Pool({ connectionString });
+  const pgjs = postgres(connectionString);
+  const sql_script = fs.readFileSync(path.resolve("data/init-db.sql"), "utf-8");
+  drizzle = drzl(pgjs);
   do {
     try {
-      await pool.connect();
+      await drizzle.execute(sql.raw(sql_script));
       connected = true;
       break;
     } catch (e) {
@@ -207,12 +208,11 @@ const main = async () => {
     console.error("Cannot connect to Postgres");
     throw lastError;
   }
-  const sql_script = fs.readFileSync(path.resolve("data/init-db.sql"), "utf-8");
-  await pool.query(sql_script);
 
-  drizzle = drzl(pool);
+  // drizzle connect
 
   await run();
+  process.exit(0);
 };
 
 main();
